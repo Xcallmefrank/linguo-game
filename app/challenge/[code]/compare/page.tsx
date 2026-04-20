@@ -19,6 +19,7 @@ type ChallengeRow = {
   question_ids: number[]
   creator_answers: PlayerAnswer[]
   mode: "normal" | "hard" | "similar" | null
+  share_code: string
 }
 
 type AttemptRow = {
@@ -35,6 +36,12 @@ type ComparisonRow = {
   opponentAnswer?: PlayerAnswer
 }
 
+function getModeLabel(mode: "normal" | "hard" | "similar" | null) {
+  return GAME_MODE_LABELS[
+    mode === "hard" || mode === "similar" ? mode : "normal"
+  ]
+}
+
 export default function ComparePage({
   params,
 }: {
@@ -45,6 +52,8 @@ export default function ComparePage({
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState<ChallengeRow | null>(null)
   const [opponent, setOpponent] = useState<AttemptRow | null>(null)
+  const [waiting, setWaiting] = useState(false)
+  const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
     const loadComparison = async () => {
@@ -61,24 +70,38 @@ export default function ComparePage({
         return
       }
 
-      const { data: attempt, error: attemptError } = await supabase
+      setCreator(challenge as ChallengeRow)
+
+      const { data: attempt } = await supabase
         .from("challenge_attempts")
         .select("*")
         .eq("challenge_id", challenge.id)
-        .single()
+        .maybeSingle()
 
-      if (attemptError || !attempt) {
-        router.push("/")
+      if (!attempt) {
+        setOpponent(null)
+        setWaiting(true)
+        setLoading(false)
         return
       }
 
-      setCreator(challenge as ChallengeRow)
       setOpponent(attempt as AttemptRow)
+      setWaiting(false)
       setLoading(false)
     }
 
     loadComparison()
-  }, [params, router])
+  }, [params, router, refreshTick])
+
+  useEffect(() => {
+    if (!waiting) return
+
+    const interval = setInterval(() => {
+      setRefreshTick((prev) => prev + 1)
+    }, 8000)
+
+    return () => clearInterval(interval)
+  }, [waiting])
 
   const comparisonRows = useMemo<ComparisonRow[]>(() => {
     if (!creator || !opponent) return []
@@ -125,7 +148,99 @@ export default function ComparePage({
     router.push("/play")
   }
 
-  if (loading || !creator || !opponent) return null
+  const handleCopyInviteLink = async () => {
+    if (!creator) return
+
+    const inviteUrl = `${window.location.origin}/challenge/${creator.share_code}`
+
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      alert("Link challenge copiato")
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  if (loading || !creator) return null
+
+  if (waiting) {
+    return (
+      <main className="min-h-screen">
+        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="w-full"
+          >
+            <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                    challenge attiva
+                  </p>
+
+                  <p className="text-sm text-green-400">
+                    {getModeLabel(creator.mode)}
+                  </p>
+
+                  <h1 className="text-3xl font-semibold tracking-tight">
+                    {creator.creator_name} ha fatto {creator.creator_score}/{creator.total_questions}
+                  </h1>
+
+                  <p className="text-zinc-400">
+                    In attesa che qualcuno completi la sfida.
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5">
+                  <div className="space-y-2">
+                    <p className="text-sm text-zinc-400">Stato</p>
+                    <p className="text-lg font-medium text-white">
+                      Nessun avversario ancora.
+                    </p>
+                    <p className="text-sm text-zinc-500">
+                      La pagina si aggiorna da sola ogni pochi secondi.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleCopyInviteLink}
+                    className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+                  >
+                    Copia link sfida
+                  </Button>
+
+                  <Button
+                    onClick={() => setRefreshTick((prev) => prev + 1)}
+                    className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800"
+                  >
+                    Aggiorna ora
+                  </Button>
+
+                  <Button
+                    onClick={handleGoHome}
+                    className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
+                  >
+                    Torna alla home
+                  </Button>
+                </div>
+
+                <AdSenseBanner
+                  slot="5204113456"
+                  className="min-h-36"
+                />
+              </div>
+            </Card>
+          </motion.div>
+        </div>
+      </main>
+    )
+  }
+
+  if (!opponent) return null
 
   return (
     <main className="min-h-screen">
@@ -150,11 +265,7 @@ export default function ComparePage({
                 <div className="space-y-1">
                   <p className="text-zinc-400">{winnerText}</p>
                   <p className="text-sm text-green-400">
-                    {GAME_MODE_LABELS[
-                      creator.mode === "hard" || creator.mode === "similar"
-                        ? creator.mode
-                        : "normal"
-                    ]}
+                    {getModeLabel(creator.mode)}
                   </p>
                 </div>
               </div>
