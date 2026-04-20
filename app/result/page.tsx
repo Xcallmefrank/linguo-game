@@ -185,23 +185,62 @@ export default function ResultPage() {
         >
           <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
             <div className="space-y-8">
-              <div className="space-y-5">
-                <div className="space-y-3 text-center">
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: {},
+                  visible: {
+                    transition: {
+                      staggerChildren: 0.08,
+                      delayChildren: 0.05,
+                    },
+                  },
+                }}
+                className="space-y-5"
+              >
+                <motion.div
+                  variants={{
+                    hidden: { opacity: 0, y: 12, filter: "blur(8px)" },
+                    visible: { opacity: 1, y: 0, filter: "blur(0px)" },
+                  }}
+                  transition={{ duration: 0.35 }}
+                  className="space-y-3 text-center"
+                >
                   <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
                     risultato
                   </p>
 
                   <div className="space-y-1">
                     <p className="text-sm text-green-400">{GAME_MODE_LABELS[mode]}</p>
-                    <h1 className="text-3xl font-semibold tracking-tight">
+                    <motion.h1
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.35, delay: 0.08 }}
+                      className="text-3xl font-semibold tracking-tight"
+                    >
                       {nickname} ha fatto {score}/{total}
-                    </h1>
+                    </motion.h1>
                   </div>
 
-                  <p className="text-zinc-400">{resultMessage}</p>
-                </div>
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: 0.14 }}
+                    className="text-zinc-400"
+                  >
+                    {resultMessage}
+                  </motion.p>
+                </motion.div>
 
-                <div ref={cardRef}>
+                <motion.div
+                  variants={{
+                    hidden: { opacity: 0, y: 18, filter: "blur(8px)" },
+                    visible: { opacity: 1, y: 0, filter: "blur(0px)" },
+                  }}
+                  transition={{ duration: 0.4 }}
+                  ref={cardRef}
+                >
                   <ResultShareCard
                     nickname={nickname}
                     score={score}
@@ -209,45 +248,83 @@ export default function ResultPage() {
                     modeLabel={GAME_MODE_LABELS[mode]}
                     message={resultMessage}
                   />
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
 
-              <div className="space-y-3">
-                <Button
-                  onClick={handleDownloadCard}
-                  disabled={downloadingCard}
-                  className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60"
-                >
-                  {downloadingCard ? "Preparo la card..." : "Scarica card"}
-                </Button>
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: {},
+                  visible: {
+                    transition: {
+                      staggerChildren: 0.07,
+                      delayChildren: 0.22,
+                    },
+                  },
+                }}
+                className="space-y-3"
+              >
+                {[
+                  {
+                    key: "download",
+                    label: downloadingCard ? "Preparo la card..." : "Scarica card",
+                    onClick: handleDownloadCard,
+                    disabled: downloadingCard,
+                    className:
+                      "h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60",
+                  },
+                  {
+                    key: "replay",
+                    label: "Rigioca",
+                    onClick: handleReplay,
+                    disabled: false,
+                    className:
+                      "h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400",
+                  },
+                  {
+                    key: "share",
+                    label: creatingChallenge ? "Creo la challenge..." : "Condividi challenge",
+                    onClick: handleShare,
+                    disabled: creatingChallenge,
+                    className:
+                      "h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60",
+                  },
+                  {
+                    key: "home",
+                    label: "Torna alla home",
+                    onClick: handleGoHome,
+                    disabled: false,
+                    className:
+                      "h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900",
+                  },
+                ].map((item) => (
+                  <motion.div
+                    key={item.key}
+                    variants={{
+                      hidden: { opacity: 0, y: 10 },
+                      visible: { opacity: 1, y: 0 },
+                    }}
+                    transition={{ duration: 0.28 }}
+                  >
+                    <Button
+                      onClick={item.onClick}
+                      disabled={item.disabled}
+                      className={item.className}
+                    >
+                      {item.label}
+                    </Button>
+                  </motion.div>
+                ))}
+              </motion.div>
 
-                <Button
-                  onClick={handleReplay}
-                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
-                >
-                  Rigioca
-                </Button>
-
-                <Button
-                  onClick={handleShare}
-                  disabled={creatingChallenge}
-                  className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60"
-                >
-                  {creatingChallenge ? "Creo la challenge..." : "Condividi challenge"}
-                </Button>
-
-                <Button
-                  onClick={handleGoHome}
-                  className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
-                >
-                  Torna alla home
-                </Button>
-              </div>
-
-              <AdSenseBanner
-                slot="5943539542"
-                className="min-h-36"
-              />
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.42 }}
+              >
+                <AdSenseBanner slot="5943539542" className="min-h-36" />
+              </motion.div>
             </div>
           </Card>
         </motion.div>

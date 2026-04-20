@@ -234,6 +234,7 @@ export default function PlayClient({
   }
 
   const progressValue = ((currentIndex + 1) / gameQuestions.length) * 100
+  const options = getSmartOptions(currentQuestion.correct, currentQuestion.id, mode)
 
   return (
     <main className="min-h-screen">
@@ -259,49 +260,85 @@ export default function PlayClient({
                   <span>Punteggio: {score}</span>
                 </div>
 
-                <Progress value={progressValue} className="h-2 rounded-full" />
+                <motion.div
+                  key={currentIndex}
+                  initial={{ opacity: 0.7 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.35 }}
+                >
+                  <Progress value={progressValue} className="h-2 rounded-full" />
+                </motion.div>
               </div>
 
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentQuestion.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16 }}
-                  transition={{ duration: 0.25 }}
+                  initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -14, filter: "blur(6px)" }}
+                  transition={{ duration: 0.28 }}
                   className="space-y-5"
                 >
-                  <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-5 shadow-inner">
+                  <motion.div
+                    initial={{ scale: 0.985, opacity: 0.9 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.25 }}
+                    className="rounded-3xl border border-white/10 bg-zinc-950/70 p-5 shadow-inner"
+                  >
                     <p className="text-xl font-medium leading-8">
                       {currentQuestion.text}
                     </p>
-                  </div>
+                  </motion.div>
 
                   <div className="grid gap-3">
-                    {getSmartOptions(currentQuestion.correct, currentQuestion.id, mode).map((option) => {
+                    {options.map((option) => {
                       const isCorrect = option === currentQuestion.correct
                       const isSelected = option === selectedAnswer
+                      const isWrongSelected = showFeedback && isSelected && !isCorrect
+                      const isCorrectShown = showFeedback && isCorrect
 
                       let buttonStyle =
                         "h-14 justify-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-4 text-left text-base text-white transition-all duration-200"
 
-                      if (showFeedback && isCorrect) {
+                      if (isCorrectShown) {
                         buttonStyle += " border-green-500 bg-green-500 text-black"
-                      } else if (showFeedback && isSelected && !isCorrect) {
+                      } else if (isWrongSelected) {
                         buttonStyle += " border-red-500 bg-red-500 text-white"
                       } else {
                         buttonStyle += " hover:border-zinc-600 hover:bg-zinc-900"
                       }
 
                       return (
-                        <Button
+                        <motion.div
                           key={option}
-                          className={buttonStyle}
-                          onClick={() => handleAnswer(option)}
-                          disabled={showFeedback}
+                          whileTap={!showFeedback ? { scale: 0.985 } : undefined}
+                          animate={
+                            isWrongSelected
+                              ? { x: [0, -6, 6, -4, 4, 0] }
+                              : isCorrectShown
+                              ? {
+                                  scale: [1, 1.025, 1],
+                                  boxShadow: [
+                                    "0 0 0 rgba(34,197,94,0)",
+                                    "0 0 18px rgba(34,197,94,0.28)",
+                                    "0 0 0 rgba(34,197,94,0)",
+                                  ],
+                                }
+                              : { x: 0, scale: 1, boxShadow: "0 0 0 rgba(0,0,0,0)" }
+                          }
+                          transition={{
+                            duration: isWrongSelected ? 0.35 : 0.4,
+                          }}
+                          className="rounded-2xl"
                         >
-                          {option}
-                        </Button>
+                          <Button
+                            className={buttonStyle}
+                            onClick={() => handleAnswer(option)}
+                            disabled={showFeedback}
+                          >
+                            {option}
+                          </Button>
+                        </motion.div>
                       )
                     })}
                   </div>
