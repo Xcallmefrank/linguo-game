@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "motion/react"
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
-import { AdSlot } from "@/components/ad-slot"
+import { AdSenseBanner } from "@/components/adsense-banner"
 import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
@@ -191,7 +191,10 @@ export default function ComparePage({
                 </Button>
               </div>
 
-              <AdSlot label="Banner pubblicitario" tall />
+              <AdSenseBanner
+                slot="5204113456"
+                className="min-h-36"
+              />
             </div>
           </Card>
 
@@ -216,10 +219,11 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{creator.creator_name}</p>
                         <p
-                          className={`font-medium ${row.creatorAnswer?.isCorrect
+                          className={`font-medium ${
+                            row.creatorAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                            }`}
+                          }`}
                         >
                           {row.creatorAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>
@@ -233,10 +237,11 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{opponent.opponent_name}</p>
                         <p
-                          className={`font-medium ${row.opponentAnswer?.isCorrect
+                          className={`font-medium ${
+                            row.opponentAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                            }`}
+                          }`}
                         >
                           {row.opponentAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>

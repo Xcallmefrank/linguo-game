@@ -25,7 +25,6 @@ export default function ChallengePage({
 }) {
   const router = useRouter()
 
-  const [code, setCode] = useState("")
   const [nickname, setNickname] = useState("")
   const [challenge, setChallenge] = useState<ChallengeData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,7 +33,6 @@ export default function ChallengePage({
     const loadChallenge = async () => {
       const resolvedParams = await params
       const challengeCode = resolvedParams.code
-      setCode(challengeCode)
 
       const { data, error } = await supabase
         .from("challenges")
