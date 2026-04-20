@@ -3,121 +3,87 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "motion/react"
+import Image from "next/image"
 import { Card } from "@/components/card"
 import { Input } from "@/components/input"
 import { Button } from "@/components/button"
-import { supabase } from "@/lib/supabase"
 
-type ChallengeData = {
-  id: string
-  share_code: string
-  creator_name: string
-  creator_score: number
-  total_questions: number
-}
-
-export default function ChallengePage({
-  params,
-}: {
-  params: Promise<{ code: string }>
-}) {
+export default function HomePage() {
+  const [nickname, setNickname] = useState("")
   const router = useRouter()
 
-  const [code, setCode] = useState("")
-  const [nickname, setNickname] = useState("")
-  const [challenge, setChallenge] = useState<ChallengeData | null>(null)
-  const [loading, setLoading] = useState(true)
-
   useEffect(() => {
-    const loadChallenge = async () => {
-      const resolvedParams = await params
-      const challengeCode = resolvedParams.code
-      setCode(challengeCode)
-
-      const { data, error } = await supabase
-        .from("challenges")
-        .select("id, share_code, creator_name, creator_score, total_questions")
-        .eq("share_code", challengeCode)
-        .single()
-
-      if (error || !data) {
-        console.error("Challenge non trovata:", error)
-        router.push("/")
-        return
-      }
-
-      setChallenge(data)
-      setLoading(false)
+    const savedName = localStorage.getItem("linguo_nickname")
+    if (savedName) {
+      setNickname(savedName)
     }
+  }, [])
 
-    loadChallenge()
-  }, [params, router])
-
-  const handleAcceptChallenge = () => {
+  const handleStart = () => {
     const cleanName = nickname.trim()
-    if (cleanName.length < 2 || !challenge) return
+    if (cleanName.length < 2) return
 
     localStorage.setItem("linguo_nickname", cleanName)
-    localStorage.setItem("linguo_active_challenge_code", challenge.share_code)
-
-    router.push(`/play?challenge=${challenge.share_code}`)
+    localStorage.removeItem("linguo_last_challenge_code")
+    router.push("/play")
   }
-
-  if (loading || !challenge) return null
 
   return (
     <main className="min-h-screen">
-      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-10">
+      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.45 }}
           className="w-full"
         >
-          <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  challenge
-                </p>
+          <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+            <div className="space-y-10">
+              <div className="flex flex-col items-center space-y-4 text-center">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-zinc-400/30 bg-gradient-to-br from-green-500/20 to-black p-2 shadow-[0_12px_35px_rgba(34,197,94,0.16)] backdrop-blur-xl">
+                  <div className="relative h-16 w-16">
+                    <Image
+                      src="/linguo-icon.png"
+                      alt="Linguo logo"
+                      fill
+                      className="object-contain"
+                      priority
+                    />
+                  </div>
+                </div>
 
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  {challenge.creator_name} ha fatto {challenge.creator_score}/
-                  {challenge.total_questions}
-                </h1>
-
-                <p className="text-zinc-400">
-                  Riuscirai a batterlo?
-                </p>
+                <div className="space-y-2">
+                  <h1 className="text-4xl font-semibold tracking-tight text-white">
+                    Linguo
+                  </h1>
+                  <p className="text-sm leading-6 text-zinc-300">
+                    Riconosci la lingua. Batti i tuoi amici.
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="mx-auto w-full max-w-md space-y-4">
+                <div className="space-y-2 text-center">
+                  <label className="block text-sm text-zinc-300">
+                    Il tuo nome
+                  </label>
+                </div>
+
                 <Input
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="Il tuo nome"
+                  placeholder="Scrivilo qui"
                   maxLength={12}
                   className="w-full rounded-2xl border-zinc-700 bg-zinc-950/80 px-5 py-4 text-center text-base text-white shadow-inner placeholder:text-zinc-500"
                 />
 
                 <Button
-                  onClick={handleAcceptChallenge}
+                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:scale-[1.01] hover:bg-green-400 disabled:bg-zinc-800 disabled:text-zinc-500"
                   disabled={nickname.trim().length < 2}
-                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400 disabled:bg-zinc-800 disabled:text-zinc-500"
+                  onClick={handleStart}
                 >
-                  Accetta la sfida
+                  Inizia
                 </Button>
-
-                <Button
-                  onClick={() => router.push("/")}
-                  className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
-                >
-                  Torna alla home
-                </Button>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-zinc-950/60 p-4 text-sm text-zinc-400">
-                Stesso numero di domande. Stessa occasione di brillare o fallire con eleganza.
               </div>
             </div>
           </Card>
