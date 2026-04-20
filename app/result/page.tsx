@@ -14,6 +14,8 @@ import {
   getResultMessage,
 } from "@/lib/game-mode"
 import { AdSenseBanner } from "@/components/adsense-banner"
+import { ResultShareCard } from "@/components/result-share-card"
+
 
 export default function ResultPage() {
   const router = useRouter()
@@ -156,19 +158,29 @@ export default function ResultPage() {
         >
           <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
             <div className="space-y-8">
-              <div className="space-y-3">
-                <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  risultato
-                </p>
+              <div className="space-y-5">
+                <div className="space-y-3 text-center">
+                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                    risultato
+                  </p>
 
-                <div className="space-y-1">
-                  <p className="text-sm text-green-400">{GAME_MODE_LABELS[mode]}</p>
-                  <h1 className="text-3xl font-semibold tracking-tight">
-                    {nickname} ha fatto {score}/{total}
-                  </h1>
+                  <div className="space-y-1">
+                    <p className="text-sm text-green-400">{GAME_MODE_LABELS[mode]}</p>
+                    <h1 className="text-3xl font-semibold tracking-tight">
+                      {nickname} ha fatto {score}/{total}
+                    </h1>
+                  </div>
+
+                  <p className="text-zinc-400">{getResultMessage(mode, score, total)}</p>
                 </div>
 
-                <p className="text-zinc-400">{getResultMessage(mode, score, total)}</p>
+                <ResultShareCard
+                  nickname={nickname}
+                  score={score}
+                  total={total}
+                  modeLabel={GAME_MODE_LABELS[mode]}
+                  message={getResultMessage(mode, score, total)}
+                />
               </div>
 
               <div className="space-y-3">

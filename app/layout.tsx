@@ -26,7 +26,7 @@ export default function RootLayout({
 
   return (
     <html lang="it">
-      <body className={`${inter.variable} font-sans antialiased bg-black text-white`}>
+      <body className={`${inter.variable} font-sans antialiased text-white`}>
         {adsenseClient ? (
           <Script
             id="adsense-script"
@@ -37,9 +37,9 @@ export default function RootLayout({
           />
         ) : null}
 
-        <div className="relative min-h-screen overflow-hidden bg-black text-white">
+        <div className="relative min-h-screen overflow-x-hidden text-white">
           <BackgroundLayer />
-          <div className="relative z-10">{children}</div>
+          <div className="relative z-10 min-h-screen">{children}</div>
         </div>
       </body>
     </html>
