@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import Script from "next/script"
 import "./globals.css"
 import { BackgroundLayer } from "@/components/background-layer"
 
@@ -21,9 +22,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+
   return (
     <html lang="it">
       <body className={`${inter.variable} font-sans antialiased bg-black text-white`}>
+        {adsenseClient ? (
+          <Script
+            id="adsense-script"
+            async
+            strategy="afterInteractive"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
+
         <div className="relative min-h-screen overflow-hidden bg-black text-white">
           <BackgroundLayer />
           <div className="relative z-10">{children}</div>
