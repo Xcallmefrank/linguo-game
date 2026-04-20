@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "motion/react"
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 const glyphs = [
   "あ", "い", "う", "え", "お",
@@ -13,7 +13,15 @@ const glyphs = [
 ]
 
 export function FloatingGlyphs() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const items = useMemo(() => {
+    if (!mounted) return []
+
     return Array.from({ length: 32 }).map((_, i) => ({
       id: i,
       glyph: glyphs[i % glyphs.length],
@@ -25,7 +33,11 @@ export function FloatingGlyphs() {
       colorType: Math.random() > 0.5 ? "green" : "dark",
       rotate: -8 + Math.random() * 16,
     }))
-  }, [])
+  }, [mounted])
+
+  if (!mounted) {
+    return null
+  }
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
@@ -21,11 +21,12 @@ function shuffleArray<T>(array: T[]): T[] {
   return newArray
 }
 
-export default function PlayClient() {
+export default function PlayClient({
+  challengeCode,
+}: {
+  challengeCode: string | null
+}) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-
-  const challengeCode = searchParams.get("challenge")
 
   const [nickname, setNickname] = useState("")
   const [gameQuestions, setGameQuestions] = useState<Question[]>([])
@@ -36,50 +37,60 @@ export default function PlayClient() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [pageError, setPageError] = useState<string | null>(null)
 
   useEffect(() => {
     const initGame = async () => {
-      const savedName = localStorage.getItem("linguo_nickname")
-      if (!savedName) {
-        router.push("/")
-        return
-      }
+      try {
+        const savedName = localStorage.getItem("linguo_nickname")
 
-      setNickname(savedName)
+        if (!savedName) {
+          router.push("/")
+          return
+        }
 
-      if (!challengeCode) {
-        const selectedQuestions = shuffleArray(questions).slice(0, 10)
+        setNickname(savedName)
+
+        if (!challengeCode) {
+          const selectedQuestions = shuffleArray(questions).slice(0, 10)
+          setGameQuestions(selectedQuestions)
+          setLoading(false)
+          return
+        }
+
+        const { data: challenge, error } = await supabase
+          .from("challenges")
+          .select("*")
+          .eq("share_code", challengeCode)
+          .single()
+
+        if (error || !challenge) {
+          console.error("Challenge non trovata:", error)
+          setPageError("Challenge non trovata.")
+          setLoading(false)
+          return
+        }
+
+        setChallengeId(challenge.id)
+
+        const ids = challenge.question_ids as number[]
+        const selectedQuestions = ids
+          .map((id) => questions.find((q) => q.id === id))
+          .filter(Boolean) as Question[]
+
+        if (selectedQuestions.length === 0) {
+          setPageError("Non sono riuscito a caricare le domande.")
+          setLoading(false)
+          return
+        }
+
         setGameQuestions(selectedQuestions)
         setLoading(false)
-        return
+      } catch (error) {
+        console.error("Errore inizializzazione gioco:", error)
+        setPageError("Si è verificato un errore durante il caricamento.")
+        setLoading(false)
       }
-
-      const { data: challenge, error } = await supabase
-        .from("challenges")
-        .select("*")
-        .eq("share_code", challengeCode)
-        .single()
-
-      if (error || !challenge) {
-        console.error("Challenge non trovata:", error)
-        router.push("/")
-        return
-      }
-
-      setChallengeId(challenge.id)
-
-      const ids = challenge.question_ids as number[]
-      const selectedQuestions = ids
-        .map((id) => questions.find((q) => q.id === id))
-        .filter(Boolean) as Question[]
-
-      if (selectedQuestions.length === 0) {
-        router.push("/")
-        return
-      }
-
-      setGameQuestions(selectedQuestions)
-      setLoading(false)
     }
 
     initGame()
@@ -89,20 +100,8 @@ export default function PlayClient() {
     return gameQuestions[currentIndex]
   }, [gameQuestions, currentIndex])
 
-  if (loading || !currentQuestion || gameQuestions.length === 0) {
-    return (
-      <main className="min-h-screen">
-        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
-          <Card className="rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <p className="text-zinc-400">Caricamento...</p>
-          </Card>
-        </div>
-      </main>
-    )
-  }
-
   const handleAnswer = (option: string) => {
-    if (showFeedback) return
+    if (showFeedback || !currentQuestion) return
 
     setSelectedAnswer(option)
     setShowFeedback(true)
@@ -168,6 +167,58 @@ export default function PlayClient() {
       setSelectedAnswer(null)
       setShowFeedback(false)
     }, 900)
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen">
+        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
+          <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+            <p className="text-zinc-300">Caricamento gioco...</p>
+          </Card>
+        </div>
+      </main>
+    )
+  }
+
+  if (pageError) {
+    return (
+      <main className="min-h-screen">
+        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
+          <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+            <div className="space-y-4">
+              <p className="text-zinc-300">{pageError}</p>
+              <Button
+                onClick={() => router.push("/")}
+                className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+              >
+                Torna alla home
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </main>
+    )
+  }
+
+  if (!currentQuestion) {
+    return (
+      <main className="min-h-screen">
+        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
+          <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+            <div className="space-y-4">
+              <p className="text-zinc-300">Nessuna domanda disponibile.</p>
+              <Button
+                onClick={() => router.push("/")}
+                className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+              >
+                Torna alla home
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </main>
+    )
   }
 
   const progressValue = ((currentIndex + 1) / gameQuestions.length) * 100
