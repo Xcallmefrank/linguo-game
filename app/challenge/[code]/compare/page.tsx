@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "motion/react"
+import { toPng } from "html-to-image"
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
+import { CompareShareCard } from "@/components/compare-share-card"
 import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
@@ -48,12 +50,14 @@ export default function ComparePage({
   params: Promise<{ code: string }>
 }) {
   const router = useRouter()
+  const cardRef = useRef<HTMLDivElement | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState<ChallengeRow | null>(null)
   const [opponent, setOpponent] = useState<AttemptRow | null>(null)
   const [waiting, setWaiting] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [downloadingCard, setDownloadingCard] = useState(false)
 
   useEffect(() => {
     const loadComparison = async () => {
@@ -158,6 +162,30 @@ export default function ComparePage({
       alert("Link challenge copiato")
     } catch (error) {
       console.error(error)
+    }
+  }
+
+  const handleDownloadCard = async () => {
+    if (!cardRef.current || !creator || !opponent) return
+
+    try {
+      setDownloadingCard(true)
+
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#050505",
+      })
+
+      const link = document.createElement("a")
+      link.download = `linguo-compare-${creator.creator_name}-vs-${opponent.opponent_name}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (error) {
+      console.error("Errore download card compare:", error)
+      alert("Non sono riuscito a scaricare la card.")
+    } finally {
+      setDownloadingCard(false)
     }
   }
 
@@ -270,23 +298,27 @@ export default function ComparePage({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
-                  <p className="text-sm text-zinc-400">{creator.creator_name}</p>
-                  <p className="mt-2 text-3xl font-semibold text-green-400">
-                    {creator.creator_score}/{creator.total_questions}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
-                  <p className="text-sm text-zinc-400">{opponent.opponent_name}</p>
-                  <p className="mt-2 text-3xl font-semibold text-green-400">
-                    {opponent.opponent_score}/{creator.total_questions}
-                  </p>
-                </div>
+              <div ref={cardRef}>
+                <CompareShareCard
+                  creatorName={creator.creator_name}
+                  creatorScore={creator.creator_score}
+                  opponentName={opponent.opponent_name}
+                  opponentScore={opponent.opponent_score}
+                  total={creator.total_questions}
+                  modeLabel={getModeLabel(creator.mode)}
+                  winnerText={winnerText}
+                />
               </div>
 
               <div className="space-y-3">
+                <Button
+                  onClick={handleDownloadCard}
+                  disabled={downloadingCard}
+                  className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  {downloadingCard ? "Preparo la card..." : "Scarica card"}
+                </Button>
+
                 <Button
                   onClick={handlePlayAgain}
                   className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
