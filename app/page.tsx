@@ -13,6 +13,7 @@ import {
   GAME_MODE_LABELS,
   GameMode,
 } from "@/lib/game-mode"
+import { AdSenseBanner } from "@/components/adsense-banner"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
@@ -107,17 +108,15 @@ export default function HomePage() {
                           key={mode}
                           type="button"
                           onClick={() => setSelectedMode(mode)}
-                          className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${
-                            active
+                          className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
                               ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
                               : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
-                          }`}
+                            }`}
                         >
                           <div className="space-y-1">
                             <p
-                              className={`font-medium ${
-                                active ? "text-green-400" : "text-white"
-                              }`}
+                              className={`font-medium ${active ? "text-green-400" : "text-white"
+                                }`}
                             >
                               {GAME_MODE_LABELS[mode]}
                             </p>
@@ -149,7 +148,10 @@ export default function HomePage() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="w-full"
         >
-          <AdSlot label="Banner pubblicitario" />
+          <AdSenseBanner
+            slot="5675946231"
+            className="min-h-24"
+          />
         </motion.div>
       </div>
     </main>
