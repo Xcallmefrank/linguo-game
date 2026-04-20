@@ -7,6 +7,7 @@ import Image from "next/image"
 import { Card } from "@/components/card"
 import { Input } from "@/components/input"
 import { Button } from "@/components/button"
+import { AdSlot } from "@/components/ad-slot"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
@@ -30,7 +31,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen">
-      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-5 px-5 py-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -87,6 +88,15 @@ export default function HomePage() {
               </div>
             </div>
           </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="w-full"
+        >
+          <AdSlot label="Banner pubblicitario" />
         </motion.div>
       </div>
     </main>
