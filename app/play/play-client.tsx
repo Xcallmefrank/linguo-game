@@ -6,20 +6,14 @@ import { motion, AnimatePresence } from "motion/react"
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { Progress } from "@/components/progress"
-import { questions, Question } from "@/lib/questions"
+import { Question } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { supabase } from "@/lib/supabase"
-
-function shuffleArray<T>(array: T[]): T[] {
-  const newArray = [...array]
-
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[newArray[i], newArray[j]] = [newArray[j], newArray[i]]
-  }
-
-  return newArray
-}
+import {
+  GAME_MODE_LABELS,
+  GameMode,
+  getQuestionsForMode,
+} from "@/lib/game-mode"
 
 export default function PlayClient({
   challengeCode,
@@ -29,6 +23,7 @@ export default function PlayClient({
   const router = useRouter()
 
   const [nickname, setNickname] = useState("")
+  const [mode, setMode] = useState<GameMode>("normal")
   const [gameQuestions, setGameQuestions] = useState<Question[]>([])
   const [challengeId, setChallengeId] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -43,6 +38,7 @@ export default function PlayClient({
     const initGame = async () => {
       try {
         const savedName = localStorage.getItem("linguo_nickname")
+        const savedMode = localStorage.getItem("linguo_mode") as GameMode | null
 
         if (!savedName) {
           router.push("/")
@@ -52,8 +48,11 @@ export default function PlayClient({
         setNickname(savedName)
 
         if (!challengeCode) {
-          const selectedQuestions = shuffleArray(questions).slice(0, 10)
-          setGameQuestions(selectedQuestions)
+          const currentMode =
+            savedMode === "hard" || savedMode === "similar" ? savedMode : "normal"
+
+          setMode(currentMode)
+          setGameQuestions(getQuestionsForMode(currentMode, 10))
           setLoading(false)
           return
         }
@@ -71,12 +70,19 @@ export default function PlayClient({
           return
         }
 
+        const challengeMode =
+          challenge.mode === "hard" || challenge.mode === "similar"
+            ? challenge.mode
+            : "normal"
+
+        localStorage.setItem("linguo_mode", challengeMode)
+        setMode(challengeMode)
         setChallengeId(challenge.id)
 
         const ids = challenge.question_ids as number[]
-        const selectedQuestions = ids
-          .map((id) => questions.find((q) => q.id === id))
-          .filter(Boolean) as Question[]
+        const selectedQuestions = getQuestionsForMode(challengeMode, 100).filter((q) =>
+          ids.includes(q.id)
+        )
 
         if (selectedQuestions.length === 0) {
           setPageError("Non sono riuscito a caricare le domande.")
@@ -84,7 +90,11 @@ export default function PlayClient({
           return
         }
 
-        setGameQuestions(selectedQuestions)
+        const orderedQuestions = ids
+          .map((id) => selectedQuestions.find((q) => q.id === id))
+          .filter(Boolean) as Question[]
+
+        setGameQuestions(orderedQuestions)
         setLoading(false)
       } catch (error) {
         console.error("Errore inizializzazione gioco:", error)
@@ -134,6 +144,7 @@ export default function PlayClient({
           "linguo_question_ids",
           JSON.stringify(gameQuestions.map((q) => q.id))
         )
+        localStorage.setItem("linguo_mode", mode)
 
         if (!challengeCode) {
           router.push("/result")
@@ -237,9 +248,14 @@ export default function PlayClient({
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm text-zinc-400">
                   <span>{nickname}</span>
+                  <span>{GAME_MODE_LABELS[mode]}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-zinc-500">
                   <span>
                     {currentIndex + 1}/{gameQuestions.length}
                   </span>
+                  <span>Punteggio: {score}</span>
                 </div>
 
                 <Progress value={progressValue} className="h-2 rounded-full" />
@@ -290,10 +306,6 @@ export default function PlayClient({
                   </div>
                 </motion.div>
               </AnimatePresence>
-
-              <div className="text-center text-sm text-zinc-500">
-                Punteggio: {score}
-              </div>
             </div>
           </Card>
         </motion.div>

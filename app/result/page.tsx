@@ -8,6 +8,11 @@ import { Button } from "@/components/button"
 import { AdSlot } from "@/components/ad-slot"
 import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
+import {
+  GAME_MODE_LABELS,
+  GameMode,
+  getResultMessage,
+} from "@/lib/game-mode"
 
 export default function ResultPage() {
   const router = useRouter()
@@ -15,6 +20,7 @@ export default function ResultPage() {
   const [nickname, setNickname] = useState("")
   const [score, setScore] = useState(0)
   const [total, setTotal] = useState(0)
+  const [mode, setMode] = useState<GameMode>("normal")
   const [answers, setAnswers] = useState<PlayerAnswer[]>([])
   const [questionIds, setQuestionIds] = useState<number[]>([])
   const [creatingChallenge, setCreatingChallenge] = useState(false)
@@ -27,6 +33,7 @@ export default function ResultPage() {
     const savedAnswers = localStorage.getItem("linguo_answers")
     const savedQuestionIds = localStorage.getItem("linguo_question_ids")
     const savedChallengeCode = localStorage.getItem("linguo_last_challenge_code")
+    const savedMode = localStorage.getItem("linguo_mode") as GameMode | null
 
     if (
       !savedName ||
@@ -45,6 +52,14 @@ export default function ResultPage() {
     setAnswers(JSON.parse(savedAnswers))
     setQuestionIds(JSON.parse(savedQuestionIds))
     setExistingChallengeCode(savedChallengeCode)
+
+    if (
+      savedMode === "normal" ||
+      savedMode === "hard" ||
+      savedMode === "similar"
+    ) {
+      setMode(savedMode)
+    }
   }, [router])
 
   const handleReplay = () => {
@@ -58,7 +73,7 @@ export default function ResultPage() {
 
   const openShare = async (shareCode: string) => {
     const challengeUrl = `${window.location.origin}/challenge/${shareCode}`
-    const shareText = `${nickname} ha fatto ${score}/${total} su Linguo. Riuscirai a batterlo?`
+    const shareText = `${nickname} ha fatto ${score}/${total} in modalità ${GAME_MODE_LABELS[mode]} su Linguo. Riuscirai a batterlo?`
 
     if (navigator.share) {
       try {
@@ -112,6 +127,7 @@ export default function ResultPage() {
       total_questions: total,
       question_ids: questionIds,
       creator_answers: answers,
+      mode,
     })
 
     setCreatingChallenge(false)
@@ -144,13 +160,14 @@ export default function ResultPage() {
                   risultato
                 </p>
 
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  {nickname} ha fatto {score}/{total}
-                </h1>
+                <div className="space-y-1">
+                  <p className="text-sm text-green-400">{GAME_MODE_LABELS[mode]}</p>
+                  <h1 className="text-3xl font-semibold tracking-tight">
+                    {nickname} ha fatto {score}/{total}
+                  </h1>
+                </div>
 
-                <p className="text-zinc-400">
-                  Bel colpo. Adesso manda la sfida a qualcuno.
-                </p>
+                <p className="text-zinc-400">{getResultMessage(mode, score, total)}</p>
               </div>
 
               <div className="space-y-3">

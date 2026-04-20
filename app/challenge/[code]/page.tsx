@@ -7,6 +7,7 @@ import { Card } from "@/components/card"
 import { Input } from "@/components/input"
 import { Button } from "@/components/button"
 import { supabase } from "@/lib/supabase"
+import { GAME_MODE_LABELS, GameMode } from "@/lib/game-mode"
 
 type ChallengeData = {
   id: string
@@ -14,6 +15,7 @@ type ChallengeData = {
   creator_name: string
   creator_score: number
   total_questions: number
+  mode: GameMode | null
 }
 
 export default function ChallengePage({
@@ -36,7 +38,7 @@ export default function ChallengePage({
 
       const { data, error } = await supabase
         .from("challenges")
-        .select("id, share_code, creator_name, creator_score, total_questions")
+        .select("id, share_code, creator_name, creator_score, total_questions, mode")
         .eq("share_code", challengeCode)
         .single()
 
@@ -57,13 +59,24 @@ export default function ChallengePage({
     const cleanName = nickname.trim()
     if (cleanName.length < 2 || !challenge) return
 
+    const challengeMode =
+      challenge.mode === "hard" || challenge.mode === "similar"
+        ? challenge.mode
+        : "normal"
+
     localStorage.setItem("linguo_nickname", cleanName)
+    localStorage.setItem("linguo_mode", challengeMode)
     localStorage.setItem("linguo_active_challenge_code", challenge.share_code)
 
     router.push(`/play?challenge=${challenge.share_code}`)
   }
 
   if (loading || !challenge) return null
+
+  const challengeMode =
+    challenge.mode === "hard" || challenge.mode === "similar"
+      ? challenge.mode
+      : "normal"
 
   return (
     <main className="min-h-screen">
@@ -81,14 +94,16 @@ export default function ChallengePage({
                   challenge
                 </p>
 
+                <p className="text-sm text-green-400">
+                  {GAME_MODE_LABELS[challengeMode]}
+                </p>
+
                 <h1 className="text-3xl font-semibold tracking-tight">
                   {challenge.creator_name} ha fatto {challenge.creator_score}/
                   {challenge.total_questions}
                 </h1>
 
-                <p className="text-zinc-400">
-                  Riuscirai a batterlo?
-                </p>
+                <p className="text-zinc-400">Riuscirai a batterlo?</p>
               </div>
 
               <div className="space-y-3">
@@ -114,10 +129,6 @@ export default function ChallengePage({
                 >
                   Torna alla home
                 </Button>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-zinc-950/60 p-4 text-sm text-zinc-400">
-                Stesso numero di domande. Stessa occasione di brillare o fallire con eleganza.
               </div>
             </div>
           </Card>

@@ -9,6 +9,7 @@ import { AdSlot } from "@/components/ad-slot"
 import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
+import { GAME_MODE_LABELS } from "@/lib/game-mode"
 
 type ChallengeRow = {
   id: string
@@ -17,6 +18,7 @@ type ChallengeRow = {
   total_questions: number
   question_ids: number[]
   creator_answers: PlayerAnswer[]
+  mode: "normal" | "hard" | "similar" | null
 }
 
 type AttemptRow = {
@@ -145,7 +147,16 @@ export default function ComparePage({
                   {creator.creator_name} vs {opponent.opponent_name}
                 </h1>
 
-                <p className="text-zinc-400">{winnerText}</p>
+                <div className="space-y-1">
+                  <p className="text-zinc-400">{winnerText}</p>
+                  <p className="text-sm text-green-400">
+                    {GAME_MODE_LABELS[
+                      creator.mode === "hard" || creator.mode === "similar"
+                        ? creator.mode
+                        : "normal"
+                    ]}
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -205,11 +216,10 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{creator.creator_name}</p>
                         <p
-                          className={`font-medium ${
-                            row.creatorAnswer?.isCorrect
+                          className={`font-medium ${row.creatorAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                          }`}
+                            }`}
                         >
                           {row.creatorAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>
@@ -223,11 +233,10 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{opponent.opponent_name}</p>
                         <p
-                          className={`font-medium ${
-                            row.opponentAnswer?.isCorrect
+                          className={`font-medium ${row.opponentAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                          }`}
+                            }`}
                         >
                           {row.opponentAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>
