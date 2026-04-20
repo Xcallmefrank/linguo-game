@@ -14,6 +14,7 @@ import {
   GameMode,
   getQuestionsForMode,
 } from "@/lib/game-mode"
+import { getSmartOptions } from "@/lib/quiz-options"
 
 export default function PlayClient({
   challengeCode,
@@ -277,7 +278,7 @@ export default function PlayClient({
                   </div>
 
                   <div className="grid gap-3">
-                    {currentQuestion.options.map((option) => {
+                    {getSmartOptions(currentQuestion.correct, currentQuestion.id, mode).map((option) => {
                       const isCorrect = option === currentQuestion.correct
                       const isSelected = option === selectedAnswer
 
