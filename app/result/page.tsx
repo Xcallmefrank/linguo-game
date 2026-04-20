@@ -13,6 +13,7 @@ import {
   GameMode,
   getResultMessage,
 } from "@/lib/game-mode"
+import { AdSenseBanner } from "@/components/adsense-banner"
 
 export default function ResultPage() {
   const router = useRouter()
@@ -194,7 +195,10 @@ export default function ResultPage() {
                 </Button>
               </div>
 
-              <AdSlot label="Banner pubblicitario" tall />
+              <AdSenseBanner
+                slot="5943539542"
+                className="min-h-36"
+              />
             </div>
           </Card>
         </motion.div>
