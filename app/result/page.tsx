@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "motion/react"
+import { toPng } from "html-to-image"
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
-import { AdSlot } from "@/components/ad-slot"
+import { AdSenseBanner } from "@/components/adsense-banner"
+import { ResultShareCard } from "@/components/result-share-card"
 import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
 import {
@@ -13,12 +15,10 @@ import {
   GameMode,
   getResultMessage,
 } from "@/lib/game-mode"
-import { AdSenseBanner } from "@/components/adsense-banner"
-import { ResultShareCard } from "@/components/result-share-card"
-
 
 export default function ResultPage() {
   const router = useRouter()
+  const cardRef = useRef<HTMLDivElement | null>(null)
 
   const [nickname, setNickname] = useState("")
   const [score, setScore] = useState(0)
@@ -28,6 +28,7 @@ export default function ResultPage() {
   const [questionIds, setQuestionIds] = useState<number[]>([])
   const [creatingChallenge, setCreatingChallenge] = useState(false)
   const [existingChallengeCode, setExistingChallengeCode] = useState<string | null>(null)
+  const [downloadingCard, setDownloadingCard] = useState(false)
 
   useEffect(() => {
     const savedName = localStorage.getItem("linguo_nickname")
@@ -72,6 +73,30 @@ export default function ResultPage() {
 
   const handleGoHome = () => {
     router.push("/")
+  }
+
+  const handleDownloadCard = async () => {
+    if (!cardRef.current) return
+
+    try {
+      setDownloadingCard(true)
+
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#050505",
+      })
+
+      const link = document.createElement("a")
+      link.download = `linguo-${nickname}-${score}-${total}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (error) {
+      console.error("Errore download card:", error)
+      alert("Non sono riuscito a scaricare la card.")
+    } finally {
+      setDownloadingCard(false)
+    }
   }
 
   const openShare = async (shareCode: string) => {
@@ -147,6 +172,8 @@ export default function ResultPage() {
     await openShare(shareCode)
   }
 
+  const resultMessage = getResultMessage(mode, score, total)
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-10">
@@ -171,19 +198,29 @@ export default function ResultPage() {
                     </h1>
                   </div>
 
-                  <p className="text-zinc-400">{getResultMessage(mode, score, total)}</p>
+                  <p className="text-zinc-400">{resultMessage}</p>
                 </div>
 
-                <ResultShareCard
-                  nickname={nickname}
-                  score={score}
-                  total={total}
-                  modeLabel={GAME_MODE_LABELS[mode]}
-                  message={getResultMessage(mode, score, total)}
-                />
+                <div ref={cardRef}>
+                  <ResultShareCard
+                    nickname={nickname}
+                    score={score}
+                    total={total}
+                    modeLabel={GAME_MODE_LABELS[mode]}
+                    message={resultMessage}
+                  />
+                </div>
               </div>
 
               <div className="space-y-3">
+                <Button
+                  onClick={handleDownloadCard}
+                  disabled={downloadingCard}
+                  className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  {downloadingCard ? "Preparo la card..." : "Scarica card"}
+                </Button>
+
                 <Button
                   onClick={handleReplay}
                   className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
