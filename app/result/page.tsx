@@ -18,6 +18,7 @@ import {
   getResultMessage,
 } from "@/lib/game-mode"
 import { getRunStats } from "@/lib/run-stats"
+import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 
 export default function ResultPage() {
   const router = useRouter()
@@ -304,7 +305,7 @@ export default function ResultPage() {
                     {stats.bestFamily ? (
                       <div className="mt-2 space-y-1">
                         <p className="text-lg font-semibold text-white">
-                          {stats.bestFamily.label}
+                          {getFamilyLabel(stats.bestFamily.key, locale)}
                         </p>
                         <p className="text-sm text-zinc-400">
                           {stats.bestFamily.correct}/{stats.bestFamily.total}

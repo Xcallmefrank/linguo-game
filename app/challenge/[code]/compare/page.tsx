@@ -14,7 +14,7 @@ import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { GAME_MODE_LABELS } from "@/lib/game-mode"
-import { getRunStats } from "@/lib/run-stats"
+import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 import { getLanguageLabel } from "@/lib/language-labels"
 
 type ChallengeRow = {
@@ -372,7 +372,7 @@ export default function ComparePage({
                       <span className="text-zinc-400">{creator.creator_name}</span>
                       <span className="text-right text-white">
                         {creatorStats?.bestFamily
-                          ? `${creatorStats.bestFamily.label} · ${creatorStats.bestFamily.correct}/${creatorStats.bestFamily.total}`
+                          ? `${getFamilyLabel(creatorStats.bestFamily.key, locale)} · ${creatorStats.bestFamily.correct}/${creatorStats.bestFamily.total}`
                           : t("result.noData")}
                       </span>
                     </div>
@@ -381,7 +381,7 @@ export default function ComparePage({
                       <span className="text-zinc-400">{opponent.opponent_name}</span>
                       <span className="text-right text-white">
                         {opponentStats?.bestFamily
-                          ? `${opponentStats.bestFamily.label} · ${opponentStats.bestFamily.correct}/${opponentStats.bestFamily.total}`
+                          ? `${getFamilyLabel(opponentStats.bestFamily.key, locale)} · ${opponentStats.bestFamily.correct}/${opponentStats.bestFamily.total}`
                           : t("result.noData")}
                       </span>
                     </div>
