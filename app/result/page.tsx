@@ -12,12 +12,7 @@ import { useToast } from "@/components/toast-provider"
 import { useLocale } from "@/components/locale-provider"
 import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
-import {
-  GAME_MODE_LABELS,
-  GameMode,
-  getResultMessage,
-} from "@/lib/game-mode"
-import { getRunStats } from "@/lib/run-stats"
+import { GameMode, getResultMessage } from "@/lib/game-mode"
 import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 
 export default function ResultPage() {
@@ -112,14 +107,13 @@ export default function ResultPage() {
 
   const openShare = async (shareCode: string) => {
     const challengeUrl = `${window.location.origin}/challenge/${shareCode}`
-    const shareText =
-      localeShareText({
-        localeT: t,
-        nickname,
-        score,
-        total,
-        modeLabel: GAME_MODE_LABELS[mode],
-      }) + ` ${challengeUrl}`
+    const shareText = getShareText({
+      locale,
+      nickname,
+      score,
+      total,
+      modeLabel: t(`mode.${mode}`),
+    })
 
     if (navigator.share) {
       try {
@@ -133,7 +127,7 @@ export default function ResultPage() {
       }
     } else {
       try {
-        await navigator.clipboard.writeText(shareText)
+        await navigator.clipboard.writeText(`${shareText} ${challengeUrl}`)
         showToast(t("toast.copyChallenge"), "success")
       } catch (err) {
         console.error("Errore nella copia", err)
@@ -414,22 +408,20 @@ export default function ResultPage() {
   )
 }
 
-function localeShareText({
-  localeT,
+function getShareText({
+  locale,
   nickname,
   score,
   total,
   modeLabel,
 }: {
-  localeT: (key: string) => string
+  locale: "it" | "en"
   nickname: string
   score: number
   total: number
   modeLabel: string
 }) {
-  const isEnglish = localeT("home.start") === "Start"
-
-  if (isEnglish) {
+  if (locale === "en") {
     return `${nickname} scored ${score}/${total} in ${modeLabel} on Linguo. Can you beat them?`
   }
 

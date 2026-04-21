@@ -13,7 +13,6 @@ import { useLocale } from "@/components/locale-provider"
 import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
-import { GAME_MODE_LABELS } from "@/lib/game-mode"
 import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 import { getLanguageLabel } from "@/lib/language-labels"
 
