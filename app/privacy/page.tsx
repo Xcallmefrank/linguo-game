@@ -1,6 +1,21 @@
+"use client"
+
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/card"
+import { Button } from "@/components/button"
 
 export default function PrivacyPage() {
+  const router = useRouter()
+
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back()
+      return
+    }
+
+    router.push("/")
+  }
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-10">
@@ -40,10 +55,17 @@ export default function PrivacyPage() {
               </p>
 
               <p>
-                Per richieste relative a privacy o contenuti, aggiungi qui il
-                tuo indirizzo email di contatto quando vuoi rendere questa
-                pagina definitiva.
+                
               </p>
+            </div>
+
+            <div className="pt-2">
+              <Button
+                onClick={handleBack}
+                className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
+              >
+                Torna indietro
+              </Button>
             </div>
           </div>
         </Card>
