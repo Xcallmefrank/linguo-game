@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
 import { BackgroundLayer } from "@/components/background-layer"
+import { SiteFooter } from "@/components/site-footer"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -39,7 +40,10 @@ export default function RootLayout({
 
         <div className="relative min-h-screen overflow-x-hidden text-white">
           <BackgroundLayer />
-          <div className="relative z-10 min-h-screen">{children}</div>
+          <div className="relative z-10 flex min-h-screen flex-col">
+            <div className="flex-1">{children}</div>
+            <SiteFooter />
+          </div>
         </div>
       </body>
     </html>
