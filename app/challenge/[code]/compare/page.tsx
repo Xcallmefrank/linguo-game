@@ -15,6 +15,7 @@ import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { GAME_MODE_LABELS } from "@/lib/game-mode"
 import { getRunStats } from "@/lib/run-stats"
+import { getLanguageLabel } from "@/lib/language-labels"
 
 type ChallengeRow = {
   id: string
@@ -53,7 +54,7 @@ export default function ComparePage({
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showToast } = useToast()
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
 
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState<ChallengeRow | null>(null)
@@ -135,24 +136,22 @@ export default function ComparePage({
   const winnerText = useMemo(() => {
     if (!creator || !opponent) return ""
 
-    const isEnglish = t("home.start") === "Start"
-
     if (creator.creator_score === opponent.opponent_score) {
-      return isEnglish
+      return locale === "en"
         ? "A tie. Annoyingly balanced."
         : "Pareggio. Fastidiosamente equilibrato."
     }
 
     if (creator.creator_score > opponent.opponent_score) {
-      return isEnglish
+      return locale === "en"
         ? `${creator.creator_name} won`
         : `${creator.creator_name} ha vinto`
     }
 
-    return isEnglish
+    return locale === "en"
       ? `${opponent.opponent_name} won`
       : `${opponent.opponent_name} ha vinto`
-  }, [creator, opponent, t])
+  }, [creator, opponent, locale])
 
   const creatorStats = creator ? getRunStats(creator.creator_answers) : null
   const opponentStats = opponent ? getRunStats(opponent.opponent_answers) : null
@@ -451,7 +450,9 @@ export default function ComparePage({
                         </p>
                       </div>
                       <p className="mt-2 font-medium text-white">
-                        {row.creatorAnswer?.selected}
+                        {row.creatorAnswer?.selected
+                          ? getLanguageLabel(row.creatorAnswer.selected, locale)
+                          : ""}
                       </p>
                     </div>
 
@@ -471,14 +472,16 @@ export default function ComparePage({
                         </p>
                       </div>
                       <p className="mt-2 font-medium text-white">
-                        {row.opponentAnswer?.selected}
+                        {row.opponentAnswer?.selected
+                          ? getLanguageLabel(row.opponentAnswer.selected, locale)
+                          : ""}
                       </p>
                     </div>
 
                     <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-3">
                       <p className="text-zinc-400">{t("compare.correctAnswer")}</p>
                       <p className="mt-2 font-medium text-green-400">
-                        {row.correct}
+                        {getLanguageLabel(row.correct, locale)}
                       </p>
                     </div>
                   </div>

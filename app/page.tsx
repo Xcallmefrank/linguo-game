@@ -7,19 +7,15 @@ import Image from "next/image"
 import { Card } from "@/components/card"
 import { Input } from "@/components/input"
 import { Button } from "@/components/button"
-import { AdSlot } from "@/components/ad-slot"
-import {
-  GAME_MODE_DESCRIPTIONS,
-  GAME_MODE_LABELS,
-  GameMode,
-} from "@/lib/game-mode"
 import { AdSenseBanner } from "@/components/adsense-banner"
 import { useLocale } from "@/components/locale-provider"
+import { GameMode } from "@/lib/game-mode"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
   const [selectedMode, setSelectedMode] = useState<GameMode>("normal")
   const router = useRouter()
+  const { t } = useLocale()
 
   useEffect(() => {
     const savedName = localStorage.getItem("linguo_nickname")
@@ -37,8 +33,6 @@ export default function HomePage() {
       setSelectedMode(savedMode)
     }
   }, [])
-
-  const { t } = useLocale()
 
   const handleStart = () => {
     const cleanName = nickname.trim()
@@ -100,7 +94,9 @@ export default function HomePage() {
                 />
 
                 <div className="space-y-3 pt-1">
-                  <p className="text-center text-sm text-zinc-300">{t("home.mode")}</p>
+                  <p className="text-center text-sm text-zinc-300">
+                    {t("home.mode")}
+                  </p>
 
                   <div className="grid gap-3">
                     {(["normal", "hard", "similar"] as GameMode[]).map((mode) => {
@@ -111,15 +107,17 @@ export default function HomePage() {
                           key={mode}
                           type="button"
                           onClick={() => setSelectedMode(mode)}
-                          className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
-                            ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
-                            : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
-                            }`}
+                          className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${
+                            active
+                              ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
+                              : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
+                          }`}
                         >
                           <div className="space-y-1">
                             <p
-                              className={`font-medium ${active ? "text-green-400" : "text-white"
-                                }`}
+                              className={`font-medium ${
+                                active ? "text-green-400" : "text-white"
+                              }`}
                             >
                               {t(`mode.${mode}`)}
                             </p>
@@ -151,10 +149,7 @@ export default function HomePage() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="w-full"
         >
-          <AdSenseBanner
-            slot="5675946231"
-            className="min-h-24"
-          />
+          <AdSenseBanner slot="5675946231" className="min-h-24" />
         </motion.div>
       </div>
     </main>

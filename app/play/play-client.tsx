@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "motion/react"
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { Progress } from "@/components/progress"
+import { useToast } from "@/components/toast-provider"
+import { useLocale } from "@/components/locale-provider"
 import { Question } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { supabase } from "@/lib/supabase"
@@ -15,6 +17,7 @@ import {
   getQuestionsForMode,
 } from "@/lib/game-mode"
 import { getSmartOptions } from "@/lib/quiz-options"
+import { getLanguageLabel } from "@/lib/language-labels"
 
 export default function PlayClient({
   challengeCode,
@@ -22,6 +25,8 @@ export default function PlayClient({
   challengeCode: string | null
 }) {
   const router = useRouter()
+  const { showToast } = useToast()
+  const { locale, t } = useLocale()
 
   const [nickname, setNickname] = useState("")
   const [mode, setMode] = useState<GameMode>("normal")
@@ -86,7 +91,11 @@ export default function PlayClient({
         )
 
         if (selectedQuestions.length === 0) {
-          setPageError("Non sono riuscito a caricare le domande.")
+          setPageError(
+            locale === "en"
+              ? "I couldn't load the questions."
+              : "Non sono riuscito a caricare le domande."
+          )
           setLoading(false)
           return
         }
@@ -99,13 +108,17 @@ export default function PlayClient({
         setLoading(false)
       } catch (error) {
         console.error("Errore inizializzazione gioco:", error)
-        setPageError("Si è verificato un errore durante il caricamento.")
+        setPageError(
+          locale === "en"
+            ? "An error occurred while loading the game."
+            : "Si è verificato un errore durante il caricamento."
+        )
         setLoading(false)
       }
     }
 
     initGame()
-  }, [router, challengeCode])
+  }, [router, challengeCode, locale])
 
   const currentQuestion = useMemo(() => {
     return gameQuestions[currentIndex]
@@ -166,7 +179,7 @@ export default function PlayClient({
 
         if (error) {
           console.error("Errore salvataggio tentativo:", error)
-          alert("Non sono riuscito a salvare il tentativo.")
+          showToast(t("toast.challengeSaveError"), "error")
           router.push("/")
           return
         }
@@ -186,7 +199,7 @@ export default function PlayClient({
       <main className="min-h-screen">
         <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
           <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <p className="text-zinc-300">Caricamento gioco...</p>
+            <p className="text-zinc-300">{t("common.loading")}</p>
           </Card>
         </div>
       </main>
@@ -204,7 +217,7 @@ export default function PlayClient({
                 onClick={() => router.push("/")}
                 className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
               >
-                Torna alla home
+                {t("common.backHome")}
               </Button>
             </div>
           </Card>
@@ -219,12 +232,16 @@ export default function PlayClient({
         <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
           <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
             <div className="space-y-4">
-              <p className="text-zinc-300">Nessuna domanda disponibile.</p>
+              <p className="text-zinc-300">
+                {locale === "en"
+                  ? "No questions available."
+                  : "Nessuna domanda disponibile."}
+              </p>
               <Button
                 onClick={() => router.push("/")}
                 className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
               >
-                Torna alla home
+                {t("common.backHome")}
               </Button>
             </div>
           </Card>
@@ -250,14 +267,16 @@ export default function PlayClient({
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm text-zinc-400">
                   <span>{nickname}</span>
-                  <span>{GAME_MODE_LABELS[mode]}</span>
+                  <span>{t(`mode.${mode}`)}</span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm text-zinc-500">
                   <span>
                     {currentIndex + 1}/{gameQuestions.length}
                   </span>
-                  <span>Punteggio: {score}</span>
+                  <span>
+                    {t("quiz.score")}: {score}
+                  </span>
                 </div>
 
                 <motion.div
@@ -316,7 +335,7 @@ export default function PlayClient({
                             isWrongSelected
                               ? { x: [0, -6, 6, -4, 4, 0] }
                               : isCorrectShown
-                                ? {
+                              ? {
                                   scale: [1, 1.025, 1],
                                   boxShadow: [
                                     "0 0 0 rgba(34,197,94,0)",
@@ -324,7 +343,11 @@ export default function PlayClient({
                                     "0 0 0 rgba(34,197,94,0)",
                                   ],
                                 }
-                                : { x: 0, scale: 1, boxShadow: "0 0 0 rgba(0,0,0,0)" }
+                              : {
+                                  x: 0,
+                                  scale: 1,
+                                  boxShadow: "0 0 0 rgba(0,0,0,0)",
+                                }
                           }
                           transition={{
                             duration: isWrongSelected ? 0.35 : 0.4,
@@ -336,7 +359,7 @@ export default function PlayClient({
                             onClick={() => handleAnswer(option)}
                             disabled={showFeedback}
                           >
-                            {option}
+                            {getLanguageLabel(option, locale)}
                           </Button>
                         </motion.div>
                       )
