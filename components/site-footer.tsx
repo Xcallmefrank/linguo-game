@@ -56,7 +56,10 @@ export function SiteFooter() {
   return (
     <footer className="relative z-10 border-t border-white/10 bg-black/30 px-5 py-6 backdrop-blur-xl">
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
-        <p className="text-xs text-zinc-500">{t("footer.tagline")}</p>
+
+        <p className="text-[11px] tracking-[0.08em] text-zinc-600">
+          Made by Xeryon
+        </p>
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-zinc-400">
           <Link href="/privacy" className="transition-colors hover:text-white">
