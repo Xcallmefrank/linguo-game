@@ -298,7 +298,7 @@ export default function PlayClient({
                       const isCorrectShown = showFeedback && isCorrect
 
                       let buttonStyle =
-                        "h-14 justify-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-4 text-left text-base text-white transition-all duration-200"
+                        "min-h-14 w-full justify-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-4 py-4 text-left text-base leading-6 text-white transition-all duration-200"
 
                       if (isCorrectShown) {
                         buttonStyle += " border-green-500 bg-green-500 text-black"
@@ -316,7 +316,7 @@ export default function PlayClient({
                             isWrongSelected
                               ? { x: [0, -6, 6, -4, 4, 0] }
                               : isCorrectShown
-                              ? {
+                                ? {
                                   scale: [1, 1.025, 1],
                                   boxShadow: [
                                     "0 0 0 rgba(34,197,94,0)",
@@ -324,15 +324,15 @@ export default function PlayClient({
                                     "0 0 0 rgba(34,197,94,0)",
                                   ],
                                 }
-                              : { x: 0, scale: 1, boxShadow: "0 0 0 rgba(0,0,0,0)" }
+                                : { x: 0, scale: 1, boxShadow: "0 0 0 rgba(0,0,0,0)" }
                           }
                           transition={{
                             duration: isWrongSelected ? 0.35 : 0.4,
                           }}
-                          className="rounded-2xl"
+                          className="w-full rounded-2xl"
                         >
                           <Button
-                            className={buttonStyle}
+                            className={`${buttonStyle} w-full`}
                             onClick={() => handleAnswer(option)}
                             disabled={showFeedback}
                           >

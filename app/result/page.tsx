@@ -75,6 +75,11 @@ export default function ResultPage() {
     router.push("/")
   }
 
+  const handleOpenChallengeStatus = () => {
+    if (!existingChallengeCode) return
+    router.push(`/challenge/${existingChallengeCode}/compare`)
+  }
+
   const handleDownloadCard = async () => {
     if (!cardRef.current) return
 
@@ -289,6 +294,14 @@ export default function ResultPage() {
                     disabled: creatingChallenge,
                     className:
                       "h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60",
+                  },
+                  {
+                    key: "status",
+                    label: "Vedi stato sfida",
+                    onClick: handleOpenChallengeStatus,
+                    disabled: !existingChallengeCode,
+                    className:
+                      "h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-40",
                   },
                   {
                     key: "home",
