@@ -9,6 +9,7 @@ import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
 import { ResultShareCard } from "@/components/result-share-card"
 import { useToast } from "@/components/toast-provider"
+import { useLocale } from "@/components/locale-provider"
 import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
 import {
@@ -22,6 +23,7 @@ export default function ResultPage() {
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showToast } = useToast()
+  const { t } = useLocale()
 
   const [nickname, setNickname] = useState("")
   const [score, setScore] = useState(0)
@@ -101,7 +103,7 @@ export default function ResultPage() {
       link.click()
     } catch (error) {
       console.error("Errore download card:", error)
-      showToast("Non sono riuscito a scaricare la card.", "error")
+      showToast(t("toast.downloadError"), "error")
     } finally {
       setDownloadingCard(false)
     }
@@ -109,7 +111,14 @@ export default function ResultPage() {
 
   const openShare = async (shareCode: string) => {
     const challengeUrl = `${window.location.origin}/challenge/${shareCode}`
-    const shareText = `${nickname} ha fatto ${score}/${total} in modalità ${GAME_MODE_LABELS[mode]} su Linguo. Riuscirai a batterlo?`
+    const shareText =
+      localeShareText({
+        localeT: t,
+        nickname,
+        score,
+        total,
+        modeLabel: GAME_MODE_LABELS[mode],
+      }) + ` ${challengeUrl}`
 
     if (navigator.share) {
       try {
@@ -123,11 +132,11 @@ export default function ResultPage() {
       }
     } else {
       try {
-        await navigator.clipboard.writeText(`${shareText} ${challengeUrl}`)
-        showToast("Challenge copiata negli appunti.", "success")
+        await navigator.clipboard.writeText(shareText)
+        showToast(t("toast.copyChallenge"), "success")
       } catch (err) {
         console.error("Errore nella copia", err)
-        showToast("Non sono riuscito a copiare la challenge.", "error")
+        showToast(t("toast.copyError"), "error")
       }
     }
   }
@@ -170,7 +179,7 @@ export default function ResultPage() {
 
     if (error) {
       console.error("Errore creazione challenge:", error)
-      showToast("Non sono riuscito a creare la challenge.", "error")
+      showToast(t("toast.challengeCreateError"), "error")
       return
     }
 
@@ -217,18 +226,18 @@ export default function ResultPage() {
                   className="space-y-3 text-center"
                 >
                   <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                    risultato
+                    {t("result.title")}
                   </p>
 
                   <div className="space-y-1">
-                    <p className="text-sm text-green-400">{GAME_MODE_LABELS[mode]}</p>
+                    <p className="text-sm text-green-400">{t(`mode.${mode}`)}</p>
                     <motion.h1
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.35, delay: 0.08 }}
                       className="text-3xl font-semibold tracking-tight"
                     >
-                      {nickname} ha fatto {score}/{total}
+                      {nickname} {score}/{total}
                     </motion.h1>
                   </div>
 
@@ -254,7 +263,7 @@ export default function ResultPage() {
                     nickname={nickname}
                     score={score}
                     total={total}
-                    modeLabel={GAME_MODE_LABELS[mode]}
+                    modeLabel={t(`mode.${mode}`)}
                     message={resultMessage}
                   />
                 </motion.div>
@@ -270,7 +279,7 @@ export default function ResultPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        Serie migliore
+                        {t("result.bestStreak")}
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-green-400">
                         {stats.bestStreak}
@@ -279,7 +288,7 @@ export default function ResultPage() {
 
                     <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        Non latine
+                        {t("result.nonLatin")}
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-green-400">
                         {stats.nonLatinCorrect}
@@ -289,7 +298,7 @@ export default function ResultPage() {
 
                   <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Famiglia migliore
+                      {t("result.bestFamily")}
                     </p>
 
                     {stats.bestFamily ? (
@@ -298,12 +307,12 @@ export default function ResultPage() {
                           {stats.bestFamily.label}
                         </p>
                         <p className="text-sm text-zinc-400">
-                          {stats.bestFamily.correct}/{stats.bestFamily.total} corrette
+                          {stats.bestFamily.correct}/{stats.bestFamily.total}
                         </p>
                       </div>
                     ) : (
                       <p className="mt-2 text-sm text-zinc-400">
-                        Ancora nessun dato utile.
+                        {t("result.noData")}
                       </p>
                     )}
                   </div>
@@ -327,7 +336,9 @@ export default function ResultPage() {
                 {[
                   {
                     key: "download",
-                    label: downloadingCard ? "Preparo la card..." : "Scarica card",
+                    label: downloadingCard
+                      ? t("common.prepareCard")
+                      : t("common.downloadCard"),
                     onClick: handleDownloadCard,
                     disabled: downloadingCard,
                     className:
@@ -335,7 +346,7 @@ export default function ResultPage() {
                   },
                   {
                     key: "replay",
-                    label: "Rigioca",
+                    label: t("common.playAgain"),
                     onClick: handleReplay,
                     disabled: false,
                     className:
@@ -343,7 +354,9 @@ export default function ResultPage() {
                   },
                   {
                     key: "share",
-                    label: creatingChallenge ? "Creo la challenge..." : "Condividi challenge",
+                    label: creatingChallenge
+                      ? t("common.createChallenge")
+                      : t("common.shareChallenge"),
                     onClick: handleShare,
                     disabled: creatingChallenge,
                     className:
@@ -351,7 +364,7 @@ export default function ResultPage() {
                   },
                   {
                     key: "status",
-                    label: "Vedi stato sfida",
+                    label: t("common.challengeStatus"),
                     onClick: handleOpenChallengeStatus,
                     disabled: !existingChallengeCode,
                     className:
@@ -359,7 +372,7 @@ export default function ResultPage() {
                   },
                   {
                     key: "home",
-                    label: "Torna alla home",
+                    label: t("common.backHome"),
                     onClick: handleGoHome,
                     disabled: false,
                     className:
@@ -398,4 +411,26 @@ export default function ResultPage() {
       </div>
     </main>
   )
+}
+
+function localeShareText({
+  localeT,
+  nickname,
+  score,
+  total,
+  modeLabel,
+}: {
+  localeT: (key: string) => string
+  nickname: string
+  score: number
+  total: number
+  modeLabel: string
+}) {
+  const isEnglish = localeT("home.start") === "Start"
+
+  if (isEnglish) {
+    return `${nickname} scored ${score}/${total} in ${modeLabel} on Linguo. Can you beat them?`
+  }
+
+  return `${nickname} ha fatto ${score}/${total} in modalità ${modeLabel} su Linguo. Riuscirai a batterlo?`
 }

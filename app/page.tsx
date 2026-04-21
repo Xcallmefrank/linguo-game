@@ -14,6 +14,7 @@ import {
   GameMode,
 } from "@/lib/game-mode"
 import { AdSenseBanner } from "@/components/adsense-banner"
+import { useLocale } from "@/components/locale-provider"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
@@ -36,6 +37,8 @@ export default function HomePage() {
       setSelectedMode(savedMode)
     }
   }, [])
+
+  const { t } = useLocale()
 
   const handleStart = () => {
     const cleanName = nickname.trim()
@@ -76,7 +79,7 @@ export default function HomePage() {
                     Linguo
                   </h1>
                   <p className="text-sm leading-6 text-zinc-300">
-                    Riconosci la lingua. Batti i tuoi amici.
+                    {t("home.tagline")}
                   </p>
                 </div>
               </div>
@@ -84,20 +87,20 @@ export default function HomePage() {
               <div className="mx-auto w-full max-w-md space-y-4">
                 <div className="space-y-2 text-center">
                   <label className="block text-sm text-zinc-300">
-                    Il tuo nome
+                    {t("home.name")}
                   </label>
                 </div>
 
                 <Input
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="Scrivilo qui"
+                  placeholder={t("home.namePlaceholder")}
                   maxLength={12}
                   className="w-full rounded-2xl border-zinc-700 bg-zinc-950/80 px-5 py-4 text-center text-base text-white shadow-inner placeholder:text-zinc-500"
                 />
 
                 <div className="space-y-3 pt-1">
-                  <p className="text-center text-sm text-zinc-300">Modalità</p>
+                  <p className="text-center text-sm text-zinc-300">{t("home.mode")}</p>
 
                   <div className="grid gap-3">
                     {(["normal", "hard", "similar"] as GameMode[]).map((mode) => {
@@ -109,8 +112,8 @@ export default function HomePage() {
                           type="button"
                           onClick={() => setSelectedMode(mode)}
                           className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
-                              ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
-                              : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
+                            ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
+                            : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
                             }`}
                         >
                           <div className="space-y-1">
@@ -118,10 +121,10 @@ export default function HomePage() {
                               className={`font-medium ${active ? "text-green-400" : "text-white"
                                 }`}
                             >
-                              {GAME_MODE_LABELS[mode]}
+                              {t(`mode.${mode}`)}
                             </p>
                             <p className="text-sm text-zinc-400">
-                              {GAME_MODE_DESCRIPTIONS[mode]}
+                              {t(`mode.${mode}.desc`)}
                             </p>
                           </div>
                         </button>
@@ -135,7 +138,7 @@ export default function HomePage() {
                   disabled={nickname.trim().length < 2}
                   onClick={handleStart}
                 >
-                  Inizia
+                  {t("home.start")}
                 </Button>
               </div>
             </div>

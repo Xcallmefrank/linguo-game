@@ -9,6 +9,7 @@ import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
 import { CompareShareCard } from "@/components/compare-share-card"
 import { useToast } from "@/components/toast-provider"
+import { useLocale } from "@/components/locale-provider"
 import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
@@ -40,10 +41,8 @@ type ComparisonRow = {
   opponentAnswer?: PlayerAnswer
 }
 
-function getModeLabel(mode: "normal" | "hard" | "similar" | null) {
-  return GAME_MODE_LABELS[
-    mode === "hard" || mode === "similar" ? mode : "normal"
-  ]
+function getModeKey(mode: "normal" | "hard" | "similar" | null) {
+  return mode === "hard" || mode === "similar" ? mode : "normal"
 }
 
 export default function ComparePage({
@@ -54,6 +53,7 @@ export default function ComparePage({
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showToast } = useToast()
+  const { t } = useLocale()
 
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState<ChallengeRow | null>(null)
@@ -124,7 +124,7 @@ export default function ComparePage({
 
       return {
         questionId,
-        text: question?.text || "Domanda non trovata",
+        text: question?.text || "Question not found",
         correct: creatorAnswer?.correct || opponentAnswer?.correct || "",
         creatorAnswer,
         opponentAnswer,
@@ -135,16 +135,24 @@ export default function ComparePage({
   const winnerText = useMemo(() => {
     if (!creator || !opponent) return ""
 
+    const isEnglish = t("home.start") === "Start"
+
     if (creator.creator_score === opponent.opponent_score) {
-      return "Pareggio. Fastidiosamente equilibrato."
+      return isEnglish
+        ? "A tie. Annoyingly balanced."
+        : "Pareggio. Fastidiosamente equilibrato."
     }
 
     if (creator.creator_score > opponent.opponent_score) {
-      return `${creator.creator_name} ha vinto`
+      return isEnglish
+        ? `${creator.creator_name} won`
+        : `${creator.creator_name} ha vinto`
     }
 
-    return `${opponent.opponent_name} ha vinto`
-  }, [creator, opponent])
+    return isEnglish
+      ? `${opponent.opponent_name} won`
+      : `${opponent.opponent_name} ha vinto`
+  }, [creator, opponent, t])
 
   const creatorStats = creator ? getRunStats(creator.creator_answers) : null
   const opponentStats = opponent ? getRunStats(opponent.opponent_answers) : null
@@ -165,10 +173,10 @@ export default function ComparePage({
 
     try {
       await navigator.clipboard.writeText(inviteUrl)
-      showToast("Link challenge copiato.", "success")
+      showToast(t("toast.copyLink"), "success")
     } catch (error) {
       console.error(error)
-      showToast("Non sono riuscito a copiare il link.", "error")
+      showToast(t("toast.copyError"), "error")
     }
   }
 
@@ -190,7 +198,7 @@ export default function ComparePage({
       link.click()
     } catch (error) {
       console.error("Errore download card compare:", error)
-      showToast("Non sono riuscito a scaricare la card.", "error")
+      showToast(t("toast.downloadError"), "error")
     } finally {
       setDownloadingCard(false)
     }
@@ -212,30 +220,28 @@ export default function ComparePage({
               <div className="space-y-6">
                 <div className="space-y-2">
                   <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                    challenge attiva
+                    {t("compare.activeChallenge")}
                   </p>
 
                   <p className="text-sm text-green-400">
-                    {getModeLabel(creator.mode)}
+                    {t(`mode.${getModeKey(creator.mode)}`)}
                   </p>
 
                   <h1 className="text-3xl font-semibold tracking-tight">
-                    {creator.creator_name} ha fatto {creator.creator_score}/{creator.total_questions}
+                    {creator.creator_name} {creator.creator_score}/{creator.total_questions}
                   </h1>
 
-                  <p className="text-zinc-400">
-                    In attesa che qualcuno completi la sfida.
-                  </p>
+                  <p className="text-zinc-400">{t("compare.waiting")}</p>
                 </div>
 
                 <div className="rounded-3xl border border-white/10 bg-zinc-950/60 p-5">
                   <div className="space-y-2">
-                    <p className="text-sm text-zinc-400">Stato</p>
+                    <p className="text-sm text-zinc-400">Status</p>
                     <p className="text-lg font-medium text-white">
-                      Nessun avversario ancora.
+                      {t("compare.noOpponent")}
                     </p>
                     <p className="text-sm text-zinc-500">
-                      La pagina si aggiorna da sola ogni pochi secondi.
+                      {t("compare.autoRefresh")}
                     </p>
                   </div>
                 </div>
@@ -245,28 +251,25 @@ export default function ComparePage({
                     onClick={handleCopyInviteLink}
                     className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
                   >
-                    Copia link sfida
+                    {t("compare.copyLink")}
                   </Button>
 
                   <Button
                     onClick={() => setRefreshTick((prev) => prev + 1)}
                     className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800"
                   >
-                    Aggiorna ora
+                    {t("compare.refreshNow")}
                   </Button>
 
                   <Button
                     onClick={handleGoHome}
                     className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
                   >
-                    Torna alla home
+                    {t("common.backHome")}
                   </Button>
                 </div>
 
-                <AdSenseBanner
-                  slot="5204113456"
-                  className="min-h-36"
-                />
+                <AdSenseBanner slot="5204113456" className="min-h-36" />
               </div>
             </Card>
           </motion.div>
@@ -290,7 +293,7 @@ export default function ComparePage({
             <div className="space-y-6">
               <div className="space-y-2">
                 <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  confronto
+                  {t("compare.title")}
                 </p>
 
                 <h1 className="text-3xl font-semibold tracking-tight">
@@ -300,7 +303,7 @@ export default function ComparePage({
                 <div className="space-y-1">
                   <p className="text-zinc-400">{winnerText}</p>
                   <p className="text-sm text-green-400">
-                    {getModeLabel(creator.mode)}
+                    {t(`mode.${getModeKey(creator.mode)}`)}
                   </p>
                 </div>
               </div>
@@ -312,7 +315,7 @@ export default function ComparePage({
                   opponentName={opponent.opponent_name}
                   opponentScore={opponent.opponent_score}
                   total={creator.total_questions}
-                  modeLabel={getModeLabel(creator.mode)}
+                  modeLabel={t(`mode.${getModeKey(creator.mode)}`)}
                   winnerText={winnerText}
                 />
               </div>
@@ -321,7 +324,7 @@ export default function ComparePage({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Serie migliore
+                      {t("result.bestStreak")}
                     </p>
                     <div className="mt-3 space-y-2 text-sm">
                       <div className="flex items-center justify-between gap-3">
@@ -341,7 +344,7 @@ export default function ComparePage({
 
                   <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Non latine
+                      {t("result.nonLatin")}
                     </p>
                     <div className="mt-3 space-y-2 text-sm">
                       <div className="flex items-center justify-between gap-3">
@@ -362,7 +365,7 @@ export default function ComparePage({
 
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Famiglia migliore
+                    {t("result.bestFamily")}
                   </p>
 
                   <div className="mt-3 space-y-3 text-sm">
@@ -371,7 +374,7 @@ export default function ComparePage({
                       <span className="text-right text-white">
                         {creatorStats?.bestFamily
                           ? `${creatorStats.bestFamily.label} · ${creatorStats.bestFamily.correct}/${creatorStats.bestFamily.total}`
-                          : "Nessun dato"}
+                          : t("result.noData")}
                       </span>
                     </div>
 
@@ -380,7 +383,7 @@ export default function ComparePage({
                       <span className="text-right text-white">
                         {opponentStats?.bestFamily
                           ? `${opponentStats.bestFamily.label} · ${opponentStats.bestFamily.correct}/${opponentStats.bestFamily.total}`
-                          : "Nessun dato"}
+                          : t("result.noData")}
                       </span>
                     </div>
                   </div>
@@ -393,28 +396,25 @@ export default function ComparePage({
                   disabled={downloadingCard}
                   className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60"
                 >
-                  {downloadingCard ? "Preparo la card..." : "Scarica card"}
+                  {downloadingCard ? t("common.prepareCard") : t("common.downloadCard")}
                 </Button>
 
                 <Button
                   onClick={handlePlayAgain}
                   className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
                 >
-                  Nuova partita
+                  {t("common.newGame")}
                 </Button>
 
                 <Button
                   onClick={handleGoHome}
                   className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
                 >
-                  Torna alla home
+                  {t("common.backHome")}
                 </Button>
               </div>
 
-              <AdSenseBanner
-                slot="5204113456"
-                className="min-h-36"
-              />
+              <AdSenseBanner slot="5204113456" className="min-h-36" />
             </div>
           </Card>
 
@@ -427,7 +427,7 @@ export default function ComparePage({
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      domanda {index + 1}
+                      {t("quiz.question")} {index + 1}
                     </p>
                     <p className="mt-2 text-base leading-7 text-white">
                       {row.text}
@@ -445,7 +445,9 @@ export default function ComparePage({
                               : "text-red-400"
                           }`}
                         >
-                          {row.creatorAnswer?.isCorrect ? "Corretta" : "Errata"}
+                          {row.creatorAnswer?.isCorrect
+                            ? t("compare.correct")
+                            : t("compare.wrong")}
                         </p>
                       </div>
                       <p className="mt-2 font-medium text-white">
@@ -463,7 +465,9 @@ export default function ComparePage({
                               : "text-red-400"
                           }`}
                         >
-                          {row.opponentAnswer?.isCorrect ? "Corretta" : "Errata"}
+                          {row.opponentAnswer?.isCorrect
+                            ? t("compare.correct")
+                            : t("compare.wrong")}
                         </p>
                       </div>
                       <p className="mt-2 font-medium text-white">
@@ -472,7 +476,7 @@ export default function ComparePage({
                     </div>
 
                     <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-3">
-                      <p className="text-zinc-400">Risposta corretta</p>
+                      <p className="text-zinc-400">{t("compare.correctAnswer")}</p>
                       <p className="mt-2 font-medium text-green-400">
                         {row.correct}
                       </p>

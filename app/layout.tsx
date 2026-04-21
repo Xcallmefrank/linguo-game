@@ -5,6 +5,8 @@ import "./globals.css"
 import { BackgroundLayer } from "@/components/background-layer"
 import { SiteFooter } from "@/components/site-footer"
 import { ToastProvider } from "@/components/toast-provider"
+import { LocaleProvider } from "@/components/locale-provider"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,13 +42,22 @@ export default function RootLayout({
         ) : null}
 
         <ToastProvider>
-          <div className="relative min-h-screen overflow-x-hidden text-white">
-            <BackgroundLayer />
-            <div className="relative z-10 flex min-h-screen flex-col">
-              <div className="flex-1">{children}</div>
-              <SiteFooter />
+          <LocaleProvider>
+            <div className="relative min-h-screen overflow-x-hidden text-white">
+              <BackgroundLayer />
+
+              <div className="pointer-events-none absolute right-4 top-4 z-20">
+                <div className="pointer-events-auto">
+                  <LanguageSwitcher />
+                </div>
+              </div>
+
+              <div className="relative z-10 flex min-h-screen flex-col">
+                <div className="flex-1">{children}</div>
+                <SiteFooter />
+              </div>
             </div>
-          </div>
+          </LocaleProvider>
         </ToastProvider>
       </body>
     </html>
