@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
 import { GameMode, getResultMessage } from "@/lib/game-mode"
 import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
+import { trackEvent } from "@/lib/analytics"
 
 export default function ResultPage() {
   const router = useRouter()
@@ -67,6 +68,17 @@ export default function ResultPage() {
     }
   }, [router])
 
+  useEffect(() => {
+    if (!nickname || total === 0) return
+
+    trackEvent("game_complete", {
+      mode,
+      score,
+      total,
+      locale,
+    })
+  }, [nickname, score, total, mode, locale])
+
   const handleReplay = () => {
     localStorage.removeItem("linguo_last_challenge_code")
     router.push("/play")
@@ -78,6 +90,12 @@ export default function ResultPage() {
 
   const handleOpenChallengeStatus = () => {
     if (!existingChallengeCode) return
+
+    trackEvent("challenge_status_opened", {
+      code: existingChallengeCode,
+      locale,
+    })
+
     router.push(`/challenge/${existingChallengeCode}/compare`)
   }
 
@@ -177,6 +195,13 @@ export default function ResultPage() {
       showToast(t("toast.challengeCreateError"), "error")
       return
     }
+
+    trackEvent("challenge_created", {
+      mode,
+      score,
+      total,
+      locale,
+    })
 
     localStorage.setItem("linguo_last_challenge_code", shareCode)
     setExistingChallengeCode(shareCode)

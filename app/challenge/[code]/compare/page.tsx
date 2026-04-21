@@ -15,6 +15,7 @@ import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 import { getLanguageLabel } from "@/lib/language-labels"
+import { trackEvent } from "@/lib/analytics"
 
 type ChallengeRow = {
   id: string
@@ -109,6 +110,17 @@ export default function ComparePage({
 
     return () => clearInterval(interval)
   }, [waiting])
+
+  useEffect(() => {
+    if (!creator || !opponent) return
+
+    trackEvent("compare_view", {
+      mode: getModeKey(creator.mode),
+      creator_score: creator.creator_score,
+      opponent_score: opponent.opponent_score,
+      locale,
+    })
+  }, [creator, opponent, locale])
 
   const comparisonRows = useMemo<ComparisonRow[]>(() => {
     if (!creator || !opponent) return []

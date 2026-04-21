@@ -2,6 +2,7 @@
 
 import { AppLocale } from "@/lib/i18n"
 import { useLocale } from "@/components/locale-provider"
+import { trackEvent } from "@/lib/analytics"
 
 const options: { value: AppLocale; label: string; short: string }[] = [
   { value: "it", label: "Italiano", short: "IT" },
@@ -20,7 +21,10 @@ export function LanguageSwitcher() {
           <button
             key={option.value}
             type="button"
-            onClick={() => setLocale(option.value)}
+            onClick={() => {
+              setLocale(option.value)
+              trackEvent("locale_changed", { locale: option.value })
+            }}
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
               active
                 ? "bg-green-500 text-black"

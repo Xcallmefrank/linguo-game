@@ -10,12 +10,13 @@ import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
 import { useLocale } from "@/components/locale-provider"
 import { GameMode } from "@/lib/game-mode"
+import { trackEvent } from "@/lib/analytics"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
   const [selectedMode, setSelectedMode] = useState<GameMode>("normal")
   const router = useRouter()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
 
   useEffect(() => {
     const savedName = localStorage.getItem("linguo_nickname")
@@ -32,11 +33,18 @@ export default function HomePage() {
     ) {
       setSelectedMode(savedMode)
     }
-  }, [])
+
+    trackEvent("home_view", { locale })
+  }, [locale])
 
   const handleStart = () => {
     const cleanName = nickname.trim()
     if (cleanName.length < 2) return
+
+    trackEvent("game_start", {
+      mode: selectedMode,
+      locale,
+    })
 
     localStorage.setItem("linguo_nickname", cleanName)
     localStorage.setItem("linguo_mode", selectedMode)
@@ -106,7 +114,13 @@ export default function HomePage() {
                         <button
                           key={mode}
                           type="button"
-                          onClick={() => setSelectedMode(mode)}
+                          onClick={() => {
+                            setSelectedMode(mode)
+                            trackEvent("mode_selected", {
+                              mode,
+                              locale,
+                            })
+                          }}
                           className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${
                             active
                               ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
