@@ -8,11 +8,12 @@ import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
 import { CompareShareCard } from "@/components/compare-share-card"
+import { useToast } from "@/components/toast-provider"
 import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { GAME_MODE_LABELS } from "@/lib/game-mode"
-import { useToast } from "@/components/toast-provider"
+import { getRunStats } from "@/lib/run-stats"
 
 type ChallengeRow = {
   id: string
@@ -50,9 +51,9 @@ export default function ComparePage({
 }: {
   params: Promise<{ code: string }>
 }) {
-  const { showToast } = useToast()
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
+  const { showToast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [creator, setCreator] = useState<ChallengeRow | null>(null)
@@ -144,6 +145,9 @@ export default function ComparePage({
 
     return `${opponent.opponent_name} ha vinto`
   }, [creator, opponent])
+
+  const creatorStats = creator ? getRunStats(creator.creator_answers) : null
+  const opponentStats = opponent ? getRunStats(opponent.opponent_answers) : null
 
   const handleGoHome = () => {
     router.push("/")
@@ -313,6 +317,76 @@ export default function ComparePage({
                 />
               </div>
 
+              <div className="grid gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Serie migliore
+                    </p>
+                    <div className="mt-3 space-y-2 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-zinc-400">{creator.creator_name}</span>
+                        <span className="font-medium text-white">
+                          {creatorStats?.bestStreak ?? 0}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-zinc-400">{opponent.opponent_name}</span>
+                        <span className="font-medium text-white">
+                          {opponentStats?.bestStreak ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Non latine
+                    </p>
+                    <div className="mt-3 space-y-2 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-zinc-400">{creator.creator_name}</span>
+                        <span className="font-medium text-white">
+                          {creatorStats?.nonLatinCorrect ?? 0}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-zinc-400">{opponent.opponent_name}</span>
+                        <span className="font-medium text-white">
+                          {opponentStats?.nonLatinCorrect ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                    Famiglia migliore
+                  </p>
+
+                  <div className="mt-3 space-y-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-zinc-400">{creator.creator_name}</span>
+                      <span className="text-right text-white">
+                        {creatorStats?.bestFamily
+                          ? `${creatorStats.bestFamily.label} · ${creatorStats.bestFamily.correct}/${creatorStats.bestFamily.total}`
+                          : "Nessun dato"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-zinc-400">{opponent.opponent_name}</span>
+                      <span className="text-right text-white">
+                        {opponentStats?.bestFamily
+                          ? `${opponentStats.bestFamily.label} · ${opponentStats.bestFamily.correct}/${opponentStats.bestFamily.total}`
+                          : "Nessun dato"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <Button
                   onClick={handleDownloadCard}
@@ -365,10 +439,11 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{creator.creator_name}</p>
                         <p
-                          className={`font-medium ${row.creatorAnswer?.isCorrect
+                          className={`font-medium ${
+                            row.creatorAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                            }`}
+                          }`}
                         >
                           {row.creatorAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>
@@ -382,10 +457,11 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{opponent.opponent_name}</p>
                         <p
-                          className={`font-medium ${row.opponentAnswer?.isCorrect
+                          className={`font-medium ${
+                            row.opponentAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                            }`}
+                          }`}
                         >
                           {row.opponentAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>

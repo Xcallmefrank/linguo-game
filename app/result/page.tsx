@@ -8,6 +8,7 @@ import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
 import { ResultShareCard } from "@/components/result-share-card"
+import { useToast } from "@/components/toast-provider"
 import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
 import {
@@ -15,11 +16,12 @@ import {
   GameMode,
   getResultMessage,
 } from "@/lib/game-mode"
-import { useToast } from "@/components/toast-provider"
+import { getRunStats } from "@/lib/run-stats"
 
 export default function ResultPage() {
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
+  const { showToast } = useToast()
 
   const [nickname, setNickname] = useState("")
   const [score, setScore] = useState(0)
@@ -66,8 +68,6 @@ export default function ResultPage() {
       setMode(savedMode)
     }
   }, [router])
-
-  const { showToast } = useToast()
 
   const handleReplay = () => {
     localStorage.removeItem("linguo_last_challenge_code")
@@ -181,6 +181,7 @@ export default function ResultPage() {
   }
 
   const resultMessage = getResultMessage(mode, score, total)
+  const stats = getRunStats(answers)
 
   return (
     <main className="min-h-screen">
@@ -256,6 +257,56 @@ export default function ResultPage() {
                     modeLabel={GAME_MODE_LABELS[mode]}
                     message={resultMessage}
                   />
+                </motion.div>
+
+                <motion.div
+                  variants={{
+                    hidden: { opacity: 0, y: 18, filter: "blur(8px)" },
+                    visible: { opacity: 1, y: 0, filter: "blur(0px)" },
+                  }}
+                  transition={{ duration: 0.35 }}
+                  className="grid gap-3"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        Serie migliore
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-green-400">
+                        {stats.bestStreak}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        Non latine
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-green-400">
+                        {stats.nonLatinCorrect}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Famiglia migliore
+                    </p>
+
+                    {stats.bestFamily ? (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-lg font-semibold text-white">
+                          {stats.bestFamily.label}
+                        </p>
+                        <p className="text-sm text-zinc-400">
+                          {stats.bestFamily.correct}/{stats.bestFamily.total} corrette
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-zinc-400">
+                        Ancora nessun dato utile.
+                      </p>
+                    )}
+                  </div>
                 </motion.div>
               </motion.div>
 
