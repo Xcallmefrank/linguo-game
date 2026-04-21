@@ -23,7 +23,7 @@ export default function ResultPage() {
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showToast } = useToast()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
 
   const [nickname, setNickname] = useState("")
   const [score, setScore] = useState(0)
@@ -189,7 +189,7 @@ export default function ResultPage() {
     await openShare(shareCode)
   }
 
-  const resultMessage = getResultMessage(mode, score, total)
+  const resultMessage = getResultMessage(mode, score, total, locale)
   const stats = getRunStats(answers)
 
   return (

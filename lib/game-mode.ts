@@ -1,5 +1,6 @@
 import { Question, questions } from "@/lib/questions"
 import { getLanguageGroup } from "@/lib/language-groups"
+import type { AppLocale } from "@/lib/i18n"
 
 export type GameMode = "normal" | "hard" | "similar"
 
@@ -89,9 +90,7 @@ function buildBalancedNormal(pool: Question[], count: number) {
 
     if (lastGroup && streak >= 2) {
       const filtered = groups.filter((group) => group !== lastGroup)
-      if (filtered.length > 0) {
-        candidates = filtered
-      }
+      if (filtered.length > 0) candidates = filtered
     }
 
     const nextGroup = shuffleArray(candidates)[0]
@@ -123,9 +122,7 @@ function buildBalancedHard(pool: Question[], count: number) {
 
     const group = getLanguageGroup(question.correct)
 
-    if (group === lastGroup && streak >= 2) {
-      continue
-    }
+    if (group === lastGroup && streak >= 2) continue
 
     result.push(question)
 
@@ -200,25 +197,65 @@ export function getQuestionsForMode(mode: GameMode, count = 10): Question[] {
   return buildBalancedNormal(questions, count)
 }
 
-export function getResultMessage(mode: GameMode, score: number, total: number) {
+export function getResultMessage(
+  mode: GameMode,
+  score: number,
+  total: number,
+  locale: AppLocale = "it"
+) {
   const ratio = score / total
+  const en = locale === "en"
 
   if (mode === "hard") {
-    if (ratio <= 0.3) return "Le lingue ti hanno preso a schiaffi con eleganza."
-    if (ratio <= 0.6) return "Hai resistito. Non benissimo, ma hai resistito."
-    if (ratio <= 0.8) return "Qui inizi a fare paura."
-    return "O sei fortissimo, o sei un problema per tutti."
+    if (ratio <= 0.3) {
+      return en
+        ? "Languages slapped you with elegance."
+        : "Le lingue ti hanno preso a schiaffi con eleganza."
+    }
+    if (ratio <= 0.6) {
+      return en
+        ? "You survived. Not beautifully, but you survived."
+        : "Hai resistito. Non benissimo, ma hai resistito."
+    }
+    if (ratio <= 0.8) {
+      return en ? "Now you're getting dangerous." : "Qui inizi a fare paura."
+    }
+    return en
+      ? "Either you're very good, or you're a problem for everyone."
+      : "O sei fortissimo, o sei un problema per tutti."
   }
 
   if (mode === "similar") {
-    if (ratio <= 0.3) return "Hai confuso intere famiglie linguistiche."
-    if (ratio <= 0.6) return "Ti sei perso nei dettagli."
-    if (ratio <= 0.8) return "Hai orecchio fine."
-    return "Distinguere il quasi uguale è roba da maniaci. Complimenti."
+    if (ratio <= 0.3) {
+      return en
+        ? "You confused entire language families."
+        : "Hai confuso intere famiglie linguistiche."
+    }
+    if (ratio <= 0.6) {
+      return en ? "You got lost in the details." : "Ti sei perso nei dettagli."
+    }
+    if (ratio <= 0.8) {
+      return en ? "You have a sharp ear." : "Hai orecchio fine."
+    }
+    return en
+      ? "Telling almost-the-same apart is maniac territory. Respect."
+      : "Distinguere il quasi uguale è roba da maniaci. Complimenti."
   }
 
-  if (ratio <= 0.3) return "Hai litigato con mezzo pianeta."
-  if (ratio <= 0.6) return "Ti orienti, ma con qualche incidente linguistico."
-  if (ratio <= 0.8) return "Hai un buon occhio."
-  return "Pericolosamente vicino al poliglotta."
+  if (ratio <= 0.3) {
+    return en
+      ? "You picked a fight with half the planet."
+      : "Hai litigato con mezzo pianeta."
+  }
+  if (ratio <= 0.6) {
+    return en
+      ? "You can navigate it, with a few linguistic accidents."
+      : "Ti orienti, ma con qualche incidente linguistico."
+  }
+  if (ratio <= 0.8) {
+    return en ? "You have a good eye." : "Hai un buon occhio."
+  }
+  return en
+    ? "Dangerously close to becoming a polyglot."
+    : "Pericolosamente vicino al poliglotta."
 }
