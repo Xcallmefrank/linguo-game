@@ -1,4 +1,5 @@
 import { Question, questions } from "@/lib/questions"
+import { getLanguageGroup } from "@/lib/language-groups"
 
 export type GameMode = "normal" | "hard" | "similar"
 
@@ -39,20 +40,164 @@ function shuffleArray<T>(array: T[]): T[] {
   return newArray
 }
 
+function buildGroupBuckets(pool: Question[]) {
+  const buckets = new Map<string, Question[]>()
+
+  for (const question of pool) {
+    const group = getLanguageGroup(question.correct)
+
+    if (!buckets.has(group)) {
+      buckets.set(group, [])
+    }
+
+    buckets.get(group)!.push(question)
+  }
+
+  for (const [group, items] of buckets.entries()) {
+    buckets.set(group, shuffleArray(items))
+  }
+
+  return buckets
+}
+
+function takeOneFromGroup(
+  buckets: Map<string, Question[]>,
+  group: string
+): Question | null {
+  const bucket = buckets.get(group)
+  if (!bucket || bucket.length === 0) return null
+  return bucket.shift() ?? null
+}
+
+function getNonEmptyGroups(buckets: Map<string, Question[]>) {
+  return Array.from(buckets.entries())
+    .filter(([, items]) => items.length > 0)
+    .map(([group]) => group)
+}
+
+function buildBalancedNormal(pool: Question[], count: number) {
+  const buckets = buildGroupBuckets(pool)
+  const result: Question[] = []
+  let lastGroup: string | null = null
+  let streak = 0
+
+  while (result.length < count) {
+    const groups = getNonEmptyGroups(buckets)
+    if (groups.length === 0) break
+
+    let candidates = groups
+
+    if (lastGroup && streak >= 2) {
+      const filtered = groups.filter((group) => group !== lastGroup)
+      if (filtered.length > 0) {
+        candidates = filtered
+      }
+    }
+
+    const nextGroup = shuffleArray(candidates)[0]
+    const picked = takeOneFromGroup(buckets, nextGroup)
+
+    if (!picked) continue
+
+    result.push(picked)
+
+    if (nextGroup === lastGroup) {
+      streak += 1
+    } else {
+      lastGroup = nextGroup
+      streak = 1
+    }
+  }
+
+  return result
+}
+
+function buildBalancedHard(pool: Question[], count: number) {
+  const shuffled = shuffleArray(pool)
+  const result: Question[] = []
+  let lastGroup: string | null = null
+  let streak = 0
+
+  for (const question of shuffled) {
+    if (result.length >= count) break
+
+    const group = getLanguageGroup(question.correct)
+
+    if (group === lastGroup && streak >= 2) {
+      continue
+    }
+
+    result.push(question)
+
+    if (group === lastGroup) {
+      streak += 1
+    } else {
+      lastGroup = group
+      streak = 1
+    }
+  }
+
+  if (result.length < count) {
+    for (const question of shuffled) {
+      if (result.length >= count) break
+      if (!result.some((q) => q.id === question.id)) {
+        result.push(question)
+      }
+    }
+  }
+
+  return result
+}
+
+function buildBalancedSimilar(pool: Question[], count: number) {
+  const buckets = buildGroupBuckets(pool)
+  const result: Question[] = []
+
+  const groups = shuffleArray(getNonEmptyGroups(buckets)).slice(0, 4)
+  const targetGroups = groups.length > 0 ? groups : getNonEmptyGroups(buckets)
+
+  while (result.length < count) {
+    let added = false
+
+    for (const group of targetGroups) {
+      if (result.length >= count) break
+
+      const picked = takeOneFromGroup(buckets, group)
+      if (picked) {
+        result.push(picked)
+        added = true
+      }
+    }
+
+    if (!added) break
+  }
+
+  if (result.length < count) {
+    const remaining = shuffleArray(pool).filter(
+      (question) => !result.some((picked) => picked.id === question.id)
+    )
+
+    for (const question of remaining) {
+      if (result.length >= count) break
+      result.push(question)
+    }
+  }
+
+  return result
+}
+
 export function getQuestionsForMode(mode: GameMode, count = 10): Question[] {
   if (mode === "hard") {
-    return shuffleArray(
-      questions.filter((q) => HARD_QUESTION_IDS.includes(q.id))
-    ).slice(0, count)
+    const pool = questions.filter((q) => HARD_QUESTION_IDS.includes(q.id))
+    return buildBalancedHard(pool, count)
   }
 
   if (mode === "similar") {
-    return shuffleArray(
-      questions.filter((q) => SIMILAR_QUESTION_IDS.includes(q.id))
-    ).slice(0, count)
+    const pool = questions.filter((q) => SIMILAR_QUESTION_IDS.includes(q.id))
+    return buildBalancedSimilar(pool, count)
   }
 
-  return shuffleArray(questions).slice(0, count)
+  return buildBalancedNormal(questions, count)
 }
 
 export function getResultMessage(mode: GameMode, score: number, total: number) {

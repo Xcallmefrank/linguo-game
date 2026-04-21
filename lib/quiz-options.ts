@@ -1,21 +1,6 @@
 import { GameMode } from "@/lib/game-mode"
 import { questions } from "@/lib/questions"
-
-const LANGUAGE_GROUPS: Record<string, string[]> = {
-  romance: ["Italiano", "Francese", "Spagnolo", "Portoghese", "Rumeno"],
-  germanic: ["Tedesco", "Olandese", "Danese", "Svedese", "Norvegese"],
-  slavic: ["Russo", "Ucraino", "Bulgaro", "Serbo", "Polacco", "Ceco"],
-  middleEastern: ["Arabo", "Persiano", "Urdu", "Turco"],
-  eastAsian: ["Giapponese", "Coreano", "Cinese", "Thailandese", "Vietnamita"],
-}
-
-const LANGUAGE_TO_GROUP: Record<string, string> = {}
-
-for (const [groupName, langs] of Object.entries(LANGUAGE_GROUPS)) {
-  for (const lang of langs) {
-    LANGUAGE_TO_GROUP[lang] = groupName
-  }
-}
+import { LANGUAGE_GROUPS, LANGUAGE_TO_GROUP } from "@/lib/language-groups"
 
 const ALL_LANGUAGES: string[] = Array.from(
   new Set(questions.map((q) => q.correct))
