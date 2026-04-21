@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase"
 import { questions } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { GAME_MODE_LABELS } from "@/lib/game-mode"
+import { useToast } from "@/components/toast-provider"
 
 type ChallengeRow = {
   id: string
@@ -49,6 +50,7 @@ export default function ComparePage({
 }: {
   params: Promise<{ code: string }>
 }) {
+  const { showToast } = useToast()
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
 
@@ -159,9 +161,10 @@ export default function ComparePage({
 
     try {
       await navigator.clipboard.writeText(inviteUrl)
-      alert("Link challenge copiato")
+      showToast("Link challenge copiato.", "success")
     } catch (error) {
       console.error(error)
+      showToast("Non sono riuscito a copiare il link.", "error")
     }
   }
 
@@ -183,7 +186,7 @@ export default function ComparePage({
       link.click()
     } catch (error) {
       console.error("Errore download card compare:", error)
-      alert("Non sono riuscito a scaricare la card.")
+      showToast("Non sono riuscito a scaricare la card.", "error")
     } finally {
       setDownloadingCard(false)
     }
@@ -362,11 +365,10 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{creator.creator_name}</p>
                         <p
-                          className={`font-medium ${
-                            row.creatorAnswer?.isCorrect
+                          className={`font-medium ${row.creatorAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                          }`}
+                            }`}
                         >
                           {row.creatorAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>
@@ -380,11 +382,10 @@ export default function ComparePage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-zinc-400">{opponent.opponent_name}</p>
                         <p
-                          className={`font-medium ${
-                            row.opponentAnswer?.isCorrect
+                          className={`font-medium ${row.opponentAnswer?.isCorrect
                               ? "text-green-400"
                               : "text-red-400"
-                          }`}
+                            }`}
                         >
                           {row.opponentAnswer?.isCorrect ? "Corretta" : "Errata"}
                         </p>

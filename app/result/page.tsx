@@ -15,6 +15,7 @@ import {
   GameMode,
   getResultMessage,
 } from "@/lib/game-mode"
+import { useToast } from "@/components/toast-provider"
 
 export default function ResultPage() {
   const router = useRouter()
@@ -66,6 +67,8 @@ export default function ResultPage() {
     }
   }, [router])
 
+  const { showToast } = useToast()
+
   const handleReplay = () => {
     localStorage.removeItem("linguo_last_challenge_code")
     router.push("/play")
@@ -98,7 +101,7 @@ export default function ResultPage() {
       link.click()
     } catch (error) {
       console.error("Errore download card:", error)
-      alert("Non sono riuscito a scaricare la card.")
+      showToast("Non sono riuscito a scaricare la card.", "error")
     } finally {
       setDownloadingCard(false)
     }
@@ -121,10 +124,10 @@ export default function ResultPage() {
     } else {
       try {
         await navigator.clipboard.writeText(`${shareText} ${challengeUrl}`)
-        alert("Challenge copiata negli appunti")
+        showToast("Challenge copiata negli appunti.", "success")
       } catch (err) {
         console.error("Errore nella copia", err)
-        alert("Non sono riuscito a copiare la challenge.")
+        showToast("Non sono riuscito a copiare la challenge.", "error")
       }
     }
   }
@@ -167,7 +170,7 @@ export default function ResultPage() {
 
     if (error) {
       console.error("Errore creazione challenge:", error)
-      alert("Non sono riuscito a creare la challenge.")
+      showToast("Non sono riuscito a creare la challenge.", "error")
       return
     }
 

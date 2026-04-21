@@ -4,6 +4,7 @@ import Script from "next/script"
 import "./globals.css"
 import { BackgroundLayer } from "@/components/background-layer"
 import { SiteFooter } from "@/components/site-footer"
+import { ToastProvider } from "@/components/toast-provider"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,13 +39,15 @@ export default function RootLayout({
           />
         ) : null}
 
-        <div className="relative min-h-screen overflow-x-hidden text-white">
-          <BackgroundLayer />
-          <div className="relative z-10 flex min-h-screen flex-col">
-            <div className="flex-1">{children}</div>
-            <SiteFooter />
+        <ToastProvider>
+          <div className="relative min-h-screen overflow-x-hidden text-white">
+            <BackgroundLayer />
+            <div className="relative z-10 flex min-h-screen flex-col">
+              <div className="flex-1">{children}</div>
+              <SiteFooter />
+            </div>
           </div>
-        </div>
+        </ToastProvider>
       </body>
     </html>
   )
