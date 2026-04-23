@@ -12,7 +12,6 @@ import { Question } from "@/lib/questions"
 import { PlayerAnswer } from "@/lib/challenge"
 import { supabase } from "@/lib/supabase"
 import {
-  GAME_MODE_LABELS,
   GameMode,
   getQuestionsForMode,
 } from "@/lib/game-mode"
@@ -71,7 +70,9 @@ export default function PlayClient({
 
         if (error || !challenge) {
           console.error("Challenge non trovata:", error)
-          setPageError("Challenge non trovata.")
+          setPageError(
+            locale === "en" ? "Challenge not found." : "Challenge non trovata."
+          )
           setLoading(false)
           return
         }
@@ -86,7 +87,7 @@ export default function PlayClient({
         setChallengeId(challenge.id)
 
         const ids = challenge.question_ids as number[]
-        const selectedQuestions = getQuestionsForMode(challengeMode, 100).filter((q) =>
+        const selectedQuestions = getQuestionsForMode(challengeMode, 200).filter((q) =>
           ids.includes(q.id)
         )
 
@@ -121,8 +122,13 @@ export default function PlayClient({
   }, [router, challengeCode, locale])
 
   const currentQuestion = useMemo(() => {
-    return gameQuestions[currentIndex]
+    return gameQuestions[currentIndex] ?? null
   }, [gameQuestions, currentIndex])
+
+  const options = useMemo(() => {
+    if (!currentQuestion) return []
+    return getSmartOptions(currentQuestion.correct, currentQuestion.id, mode)
+  }, [currentQuestion, mode])
 
   const handleAnswer = (option: string) => {
     if (showFeedback || !currentQuestion) return
@@ -160,12 +166,7 @@ export default function PlayClient({
         )
         localStorage.setItem("linguo_mode", mode)
 
-        if (!challengeCode) {
-          router.push("/result")
-          return
-        }
-
-        if (!challengeId) {
+        if (!challengeCode || !challengeId) {
           router.push("/result")
           return
         }
@@ -251,9 +252,6 @@ export default function PlayClient({
   }
 
   const progressValue = ((currentIndex + 1) / gameQuestions.length) * 100
-  const options = useMemo(() => {
-    return getSmartOptions(currentQuestion.correct, currentQuestion.id, mode)
-  }, [currentQuestion.id, mode])
 
   return (
     <main className="min-h-screen">
@@ -337,7 +335,7 @@ export default function PlayClient({
                             isWrongSelected
                               ? { x: [0, -6, 6, -4, 4, 0] }
                               : isCorrectShown
-                                ? {
+                              ? {
                                   scale: [1, 1.025, 1],
                                   boxShadow: [
                                     "0 0 0 rgba(34,197,94,0)",
@@ -345,7 +343,7 @@ export default function PlayClient({
                                     "0 0 0 rgba(34,197,94,0)",
                                   ],
                                 }
-                                : {
+                              : {
                                   x: 0,
                                   scale: 1,
                                   boxShadow: "0 0 0 rgba(0,0,0,0)",
