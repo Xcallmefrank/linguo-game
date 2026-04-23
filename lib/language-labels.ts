@@ -19,6 +19,7 @@ const languageLabels: Record<string, { it: string; en: string }> = {
   Serbo: { it: "Serbo", en: "Serbian" },
   Polacco: { it: "Polacco", en: "Polish" },
   Ceco: { it: "Ceco", en: "Czech" },
+  Greco: { it: "Greco", en: "Greek" },
 
   Arabo: { it: "Arabo", en: "Arabic" },
   Persiano: { it: "Persiano", en: "Persian" },

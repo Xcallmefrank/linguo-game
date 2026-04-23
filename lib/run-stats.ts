@@ -1,7 +1,7 @@
-import { PlayerAnswer } from "@/lib/challenge"
-import { questions } from "@/lib/questions"
-import { getLanguageGroup } from "@/lib/language-groups"
-import type { AppLocale } from "@/lib/i18n"
+import { PlayerAnswer } from "@/lib/challenge";
+import { questions } from "@/lib/questions";
+import { getLanguageGroup } from "@/lib/language-groups";
+import type { AppLocale } from "@/lib/i18n";
 
 type FamilyKey =
   | "romance"
@@ -10,21 +10,22 @@ type FamilyKey =
   | "middleEastern"
   | "eastAsian"
   | "other"
+  | "hellenic";
 
 type FamilySummary = {
-  key: FamilyKey
-  correct: number
-  total: number
-  accuracy: number
-}
+  key: FamilyKey;
+  correct: number;
+  total: number;
+  accuracy: number;
+};
 
 export type RunStats = {
-  bestStreak: number
-  nonLatinCorrect: number
-  bestFamily: FamilySummary | null
-}
+  bestStreak: number;
+  nonLatinCorrect: number;
+  bestFamily: FamilySummary | null;
+};
 
-const NON_LATIN_GROUPS = new Set(["slavic", "middleEastern", "eastAsian"])
+const NON_LATIN_GROUPS = new Set(["slavic", "middleEastern", "eastAsian"]);
 
 export function getFamilyLabel(group: string, locale: AppLocale): string {
   const labels: Record<FamilyKey, { it: string; en: string }> = {
@@ -33,66 +34,72 @@ export function getFamilyLabel(group: string, locale: AppLocale): string {
     slavic: { it: "Slave", en: "Slavic" },
     middleEastern: { it: "Mediorientali", en: "Middle Eastern" },
     eastAsian: { it: "Asiatiche", en: "East Asian" },
+    hellenic: { it: "Elleniche", en: "Hellenic" },
     other: { it: "Altre", en: "Other" },
-  }
+  };
 
-  const safeKey = (group in labels ? group : "other") as FamilyKey
-  return labels[safeKey][locale]
+  const safeKey = (group in labels ? group : "other") as FamilyKey;
+  return labels[safeKey][locale];
 }
 
 export function getRunStats(answers: PlayerAnswer[]): RunStats {
-  let bestStreak = 0
-  let currentStreak = 0
-  let nonLatinCorrect = 0
+  let bestStreak = 0;
+  let currentStreak = 0;
+  let nonLatinCorrect = 0;
 
-  const familyMap = new Map<FamilyKey, { correct: number; total: number }>()
+  const familyMap = new Map<FamilyKey, { correct: number; total: number }>();
 
   for (const answer of answers) {
-    const question = questions.find((q) => q.id === answer.questionId)
-    const language = question?.correct ?? answer.correct
-    const rawGroup = getLanguageGroup(language)
+    const question = questions.find((q) => q.id === answer.questionId);
+    const language = question?.correct ?? answer.correct;
+    const rawGroup = getLanguageGroup(language);
     const group = (
-      ["romance", "germanic", "slavic", "middleEastern", "eastAsian"].includes(
-        rawGroup
-      )
+      [
+        "romance",
+        "germanic",
+        "slavic",
+        "hellenic",
+        "middleEastern",
+        "eastAsian",
+      ].includes(rawGroup)
         ? rawGroup
         : "other"
-    ) as FamilyKey
+    ) as FamilyKey;
 
     if (answer.isCorrect) {
-      currentStreak += 1
-      bestStreak = Math.max(bestStreak, currentStreak)
+      currentStreak += 1;
+      bestStreak = Math.max(bestStreak, currentStreak);
 
       if (NON_LATIN_GROUPS.has(group)) {
-        nonLatinCorrect += 1
+        nonLatinCorrect += 1;
       }
     } else {
-      currentStreak = 0
+      currentStreak = 0;
     }
 
     if (!familyMap.has(group)) {
-      familyMap.set(group, { correct: 0, total: 0 })
+      familyMap.set(group, { correct: 0, total: 0 });
     }
 
-    const family = familyMap.get(group)!
-    family.total += 1
+    const family = familyMap.get(group)!;
+    family.total += 1;
     if (answer.isCorrect) {
-      family.correct += 1
+      family.correct += 1;
     }
   }
 
-  let bestFamily: FamilySummary | null = null
+  let bestFamily: FamilySummary | null = null;
 
   for (const [key, value] of familyMap.entries()) {
-    if (value.total === 0) continue
+    if (value.total === 0) continue;
 
-    const accuracy = value.correct / value.total
+    const accuracy = value.correct / value.total;
     const candidate: FamilySummary = {
       key,
       correct: value.correct,
       total: value.total,
       accuracy,
-    }
+    };
 
     if (
       !bestFamily ||
@@ -100,7 +107,7 @@ export function getRunStats(answers: PlayerAnswer[]): RunStats {
       (candidate.accuracy === bestFamily.accuracy &&
         candidate.correct > bestFamily.correct)
     ) {
-      bestFamily = candidate
+      bestFamily = candidate;
     }
   }
 
@@ -108,5 +115,5 @@ export function getRunStats(answers: PlayerAnswer[]): RunStats {
     bestStreak,
     nonLatinCorrect,
     bestFamily,
-  }
+  };
 }

@@ -2,6 +2,7 @@ export const LANGUAGE_GROUPS: Record<string, string[]> = {
   romance: ["Italiano", "Francese", "Spagnolo", "Portoghese", "Rumeno"],
   germanic: ["Tedesco", "Olandese", "Danese", "Svedese", "Norvegese"],
   slavic: ["Russo", "Ucraino", "Bulgaro", "Serbo", "Polacco", "Ceco"],
+  hellenic: ["Greco"],
   middleEastern: ["Arabo", "Persiano", "Urdu", "Turco"],
   eastAsian: ["Giapponese", "Coreano", "Cinese", "Thailandese", "Vietnamita"],
 }
