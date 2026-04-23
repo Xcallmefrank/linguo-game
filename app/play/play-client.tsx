@@ -251,7 +251,9 @@ export default function PlayClient({
   }
 
   const progressValue = ((currentIndex + 1) / gameQuestions.length) * 100
-  const options = getSmartOptions(currentQuestion.correct, currentQuestion.id, mode)
+  const options = useMemo(() => {
+    return getSmartOptions(currentQuestion.correct, currentQuestion.id, mode)
+  }, [currentQuestion.id, mode])
 
   return (
     <main className="min-h-screen">
@@ -335,7 +337,7 @@ export default function PlayClient({
                             isWrongSelected
                               ? { x: [0, -6, 6, -4, 4, 0] }
                               : isCorrectShown
-                              ? {
+                                ? {
                                   scale: [1, 1.025, 1],
                                   boxShadow: [
                                     "0 0 0 rgba(34,197,94,0)",
@@ -343,7 +345,7 @@ export default function PlayClient({
                                     "0 0 0 rgba(34,197,94,0)",
                                   ],
                                 }
-                              : {
+                                : {
                                   x: 0,
                                   scale: 1,
                                   boxShadow: "0 0 0 rgba(0,0,0,0)",
