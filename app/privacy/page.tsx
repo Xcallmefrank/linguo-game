@@ -60,7 +60,7 @@ export default function PrivacyPage() {
 
                   <p>
                     Per richieste relative a privacy o contenuti, scrivimi a 
-                    contact@noyrex.xom
+                    contact@noyrex.com
                   </p>
                 </>
               ) : (
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
 
                   <p>
                     For privacy or content inquiries, please send an email to
-                     contact@noyrex.xom
+                     contact@noyrex.com
                   </p>
                 </>
               )}
