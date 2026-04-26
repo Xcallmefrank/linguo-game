@@ -1,13 +1,12 @@
 "use client"
 
 import { useEffect } from "react"
-import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/card"
 import { supabase } from "@/lib/supabase"
 
-export default function AuthCallbackPage() {
-  const searchParams = useSearchParams()
+export const dynamic = "force-dynamic"
 
+export default function AuthCallbackPage() {
   useEffect(() => {
     let cancelled = false
 
@@ -19,7 +18,8 @@ export default function AuthCallbackPage() {
 
     const handleAuth = async () => {
       try {
-        const code = searchParams.get("code")
+        const params = new URLSearchParams(window.location.search)
+        const code = params.get("code")
 
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
@@ -46,7 +46,7 @@ export default function AuthCallbackPage() {
       cancelled = true
       window.clearTimeout(timeout)
     }
-  }, [searchParams])
+  }, [])
 
   return (
     <main className="min-h-screen">
