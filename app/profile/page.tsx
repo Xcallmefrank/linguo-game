@@ -14,6 +14,7 @@ import {
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { useAuth } from "@/components/auth-provider"
+import { useLocale } from "@/components/locale-provider"
 import { signInWithGoogle, signOut } from "@/lib/auth"
 import { getFlagFromCode } from "@/lib/countries"
 import { getMyProfile } from "@/lib/profile"
@@ -43,15 +44,10 @@ function formatTime(ms: number | null) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
-function modeLabel(mode: string) {
-  if (mode === "normal") return "Normale"
-  if (mode === "hard") return "Difficile"
-  return "Lingue simili"
-}
-
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { t, locale } = useLocale()
 
   const [gateState, setGateState] = useState<GateState>("checking-auth")
   const [profile, setProfile] = useState<any>(null)
@@ -130,6 +126,8 @@ export default function ProfilePage() {
     }
   }
 
+  const modeLabel = (mode: string) => t(`mode.${mode}`)
+
   const gamesByModeChart = useMemo(() => {
     return modeStats.map((item) => ({
       name: modeLabel(item.mode),
@@ -151,15 +149,15 @@ export default function ProfilePage() {
           <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
             <div className="space-y-3">
               <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                profilo
+                {t("profile.title")}
               </p>
               <p className="text-base text-zinc-300">
-                {authLoading && "Controllo sessione..."}
-                {!authLoading && gateState === "checking-auth" && "Controllo accesso..."}
-                {!authLoading && gateState === "signing-in" && "Ti porto al login Google..."}
-                {!authLoading && gateState === "checking-profile" && "Controllo profilo..."}
-                {!authLoading && gateState === "loading-profile" && "Carico statistiche e grafici..."}
-                {!authLoading && gateState === "error" && "C'è stato un problema nel caricamento."}
+                {authLoading && t("auth.checkingSession")}
+                {!authLoading && gateState === "checking-auth" && t("auth.checkingAccess")}
+                {!authLoading && gateState === "signing-in" && t("auth.goingToGoogle")}
+                {!authLoading && gateState === "checking-profile" && t("ranked.checkingProfile")}
+                {!authLoading && gateState === "loading-profile" && t("profile.loading")}
+                {!authLoading && gateState === "error" && t("ranked.problemLoading")}
               </p>
 
               {gateState === "error" ? (
@@ -167,7 +165,7 @@ export default function ProfilePage() {
                   onClick={() => router.push("/")}
                   className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
                 >
-                  Torna alla home
+                  {t("common.backHome")}
                 </Button>
               ) : null}
             </div>
@@ -189,7 +187,7 @@ export default function ProfilePage() {
               }}
               className="h-10 rounded-full border border-zinc-800 bg-black/30 px-4 text-sm font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
             >
-              ← Torna alla home
+              ← {t("common.backHome")}
             </button>
           </div>
 
@@ -197,7 +195,7 @@ export default function ProfilePage() {
             <div className="space-y-6">
               <div className="space-y-2 text-center">
                 <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  profilo
+                  {t("profile.title")}
                 </p>
                 <h1 className="text-4xl font-semibold tracking-tight text-white">
                   {profile?.nickname}
@@ -211,7 +209,7 @@ export default function ProfilePage() {
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Partite totali
+                    {t("profile.totalGames")}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-green-400">
                     {overview?.totalGames ?? 0}
@@ -220,7 +218,7 @@ export default function ProfilePage() {
 
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Accuracy media
+                    {t("profile.averageAccuracy")}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-green-400">
                     {overview?.averageAccuracy ?? 0}%
@@ -229,7 +227,7 @@ export default function ProfilePage() {
 
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Best score
+                    {t("profile.bestScore")}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-green-400">
                     {overview?.bestScore ?? 0}
@@ -238,7 +236,7 @@ export default function ProfilePage() {
 
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Best streak
+                    {t("profile.bestStreak")}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-green-400">
                     {overview?.bestStreak ?? 0}
@@ -252,7 +250,7 @@ export default function ProfilePage() {
             <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
               <div className="space-y-4">
                 <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                  Partite per modalità
+                  {t("profile.gamesByMode")}
                 </p>
 
                 <div className="w-full min-w-0">
@@ -264,7 +262,10 @@ export default function ProfilePage() {
                           <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} />
                           <YAxis stroke="#a1a1aa" fontSize={12} allowDecimals={false} />
                           <Tooltip
-                            formatter={(value) => [`${value}`, "Partite"]}
+                            formatter={(value) => [
+                              `${value}`,
+                              locale === "en" ? "Games" : "Partite",
+                            ]}
                             contentStyle={{
                               backgroundColor: "#09090b",
                               border: "1px solid #27272a",
@@ -278,7 +279,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="flex h-64 items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/70 text-sm text-zinc-500">
-                      Nessun dato disponibile ancora.
+                      {t("profile.noChartData")}
                     </div>
                   )}
                 </div>
@@ -288,7 +289,7 @@ export default function ProfilePage() {
             <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
               <div className="space-y-4">
                 <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                  Accuracy media per modalità
+                  {t("profile.avgAccuracyByMode")}
                 </p>
 
                 <div className="w-full min-w-0">
@@ -300,7 +301,10 @@ export default function ProfilePage() {
                           <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} />
                           <YAxis stroke="#a1a1aa" fontSize={12} />
                           <Tooltip
-                            formatter={(value) => [`${value}%`, "Accuracy media"]}
+                            formatter={(value) => [
+                              `${value}%`,
+                              locale === "en" ? "Average accuracy" : "Accuracy media",
+                            ]}
                             contentStyle={{
                               backgroundColor: "#09090b",
                               border: "1px solid #27272a",
@@ -314,7 +318,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="flex h-64 items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/70 text-sm text-zinc-500">
-                      Nessun dato disponibile ancora.
+                      {t("profile.noChartData")}
                     </div>
                   )}
                 </div>
@@ -325,7 +329,7 @@ export default function ProfilePage() {
           <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <div className="space-y-4">
               <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                Statistiche per modalità
+                {t("profile.modeStats")}
               </p>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -340,25 +344,25 @@ export default function ProfilePage() {
 
                     <div className="mt-3 space-y-2 text-sm text-zinc-300">
                       <p>
-                        Partite:{" "}
+                        {t("profile.totalGames")}:{" "}
                         <span className="font-semibold text-white">
                           {item.gamesPlayed}
                         </span>
                       </p>
                       <p>
-                        Best score:{" "}
+                        {t("profile.bestScore")}:{" "}
                         <span className="font-semibold text-white">
                           {item.bestScore}
                         </span>
                       </p>
                       <p>
-                        Accuracy media:{" "}
+                        {t("profile.averageAccuracy")}:{" "}
                         <span className="font-semibold text-white">
                           {item.averageAccuracy}%
                         </span>
                       </p>
                       <p>
-                        Tempo medio:{" "}
+                        {t("profile.averageTime")}:{" "}
                         <span className="font-semibold text-white">
                           {formatTime(item.averageTimeMs)}
                         </span>
@@ -373,13 +377,13 @@ export default function ProfilePage() {
           <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <div className="space-y-4">
               <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                Ranked
+                {t("ranked.title")}
               </p>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Season attuale
+                    {t("profile.currentSeason")}
                   </p>
                   <p className="mt-2 text-lg font-semibold text-white">
                     {season?.display_name ?? "--"}
@@ -388,7 +392,7 @@ export default function ProfilePage() {
 
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Run completate
+                    {t("profile.runsCompleted")}
                   </p>
                   <p className="mt-2 text-lg font-semibold text-green-400">
                     {standing?.runs_completed ?? 0}/3
@@ -397,7 +401,7 @@ export default function ProfilePage() {
 
                 <div className="rounded-2xl bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Media score
+                    {t("profile.averageScore")}
                   </p>
                   <p className="mt-2 text-lg font-semibold text-white">
                     {standing?.avg_score ?? "--"}
@@ -406,7 +410,7 @@ export default function ProfilePage() {
 
                 <div className="rounded-2xl bg-zinc-950/70 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Tempo medio
+                    {t("profile.averageTime")}
                   </p>
                   <p className="mt-2 text-lg font-semibold text-white">
                     {formatTime(standing?.avg_time_ms ?? null)}
@@ -416,18 +420,18 @@ export default function ProfilePage() {
 
               <div className="rounded-2xl border border-green-500/15 bg-green-500/8 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  Stato classifica
+                  {t("profile.rankedStatus")}
                 </p>
 
                 {standing?.is_official ? (
                   <p className="mt-2 text-lg font-semibold text-green-400">
                     {standing.position
                       ? `#${standing.position} / ${standing.total_ranked_users}`
-                      : "Classifica ufficiale disponibile"}
+                      : t("profile.officialAvailable")}
                   </p>
                 ) : (
                   <p className="mt-2 text-sm text-zinc-300">
-                    Completa tutte e 3 le run per entrare nella classifica ufficiale.
+                    {t("profile.completeThreeRuns")}
                   </p>
                 )}
               </div>
@@ -437,12 +441,12 @@ export default function ProfilePage() {
           <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <div className="space-y-4">
               <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                Ultime partite
+                {t("profile.recentGames")}
               </p>
 
               {recentSessions.length === 0 ? (
                 <p className="text-sm text-zinc-400">
-                  Nessuna partita salvata ancora.
+                  {t("profile.noGamesYet")}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -481,14 +485,14 @@ export default function ProfilePage() {
               }}
               className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
             >
-              Vai alla ranked
+              {t("profile.goRanked")}
             </Button>
 
             <Button
               onClick={handleLogout}
               className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
             >
-              Logout
+              {t("home.logout")}
             </Button>
           </div>
         </div>
