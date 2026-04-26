@@ -23,6 +23,7 @@ import { getFlagFromCode } from "@/lib/countries"
 import { trackEvent } from "@/lib/analytics"
 import { getPlayerToken } from "@/lib/player-token"
 import { setRankedLastAttemptNow } from "@/lib/ranked-cooldown"
+import { AdSenseBanner } from "@/components/adsense-banner"
 
 type RankedAnswer = {
   questionId: number
@@ -411,6 +412,8 @@ export default function RankedPlayPage() {
                 </div>
               </div>
             </Card>
+
+            <AdSenseBanner slot="3530845225" className="min-h-24" />
 
             <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
               <div className="space-y-4">

@@ -18,6 +18,7 @@ import {
 import { trackEvent } from "@/lib/analytics"
 import { formatCooldown, getRankedCooldownMs } from "@/lib/ranked-cooldown"
 import { isRankedNicknameAvailable } from "@/lib/ranked-submit"
+import { AdSenseBanner } from "@/components/adsense-banner"
 
 type RankedEntry = {
   id: string
@@ -305,6 +306,8 @@ export default function RankedPage() {
               </div>
             </div>
           </Card>
+
+          <AdSenseBanner slot="6447593116" className="min-h-24" />
 
           <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
             <div className="space-y-4">
