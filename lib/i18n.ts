@@ -184,6 +184,7 @@ const it: Messages = {
   "ranked.runMessage.great":
     "Ottima run. Serve solo un altro colpo pulito.",
   "ranked.runMessage.perfect": "Run perfetta. Fastidiosamente bella.",
+  
 }
 
 const en: Messages = {
@@ -367,6 +368,8 @@ const en: Messages = {
   "ranked.runMessage.great": "Excellent. One more sharp push.",
   "ranked.runMessage.perfect":
     "Perfect run. Very annoying, in a good way.",
+
+    
 }
 
 const dictionaries: Record<AppLocale, Messages> = { it, en }

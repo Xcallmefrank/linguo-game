@@ -67,7 +67,6 @@ export default function RankedPage() {
   const [standing, setStanding] = useState<RankedStanding | null>(null)
   const [nextRunNumber, setNextRunNumber] = useState<number | null>(null)
   const [profileNickname, setProfileNickname] = useState<string | null>(null)
-  const [countryCode, setCountryCode] = useState<string>("IT")
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -105,7 +104,6 @@ export default function RankedPage() {
         }
 
         setProfileNickname(profile.nickname)
-        setCountryCode(profile.country_code)
         setGateState("loading-ranked")
 
         const currentSeason = await getActiveRankedSeason()
@@ -126,12 +124,7 @@ export default function RankedPage() {
         console.error(error)
         if (!cancelled) {
           setGateState("error")
-          showToast(
-            locale === "en"
-              ? "I couldn't load ranked mode."
-              : "Non sono riuscito a caricare la ranked.",
-            "error"
-          )
+          showToast(t("toast.rankedLoadError"), "error")
         }
       }
     }
@@ -141,7 +134,7 @@ export default function RankedPage() {
     return () => {
       cancelled = true
     }
-  }, [authLoading, user, router, locale, showToast])
+  }, [authLoading, user, router, t, showToast])
 
   const countdown = useMemo(() => {
     if (!season) return "--"
@@ -160,15 +153,21 @@ export default function RankedPage() {
           <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
             <div className="space-y-3">
               <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                ranked
+                {t("ranked.title")}
               </p>
               <p className="text-base text-zinc-300">
-                {authLoading && "Controllo sessione..."}
-                {!authLoading && gateState === "checking-auth" && "Controllo accesso..."}
-                {!authLoading && gateState === "signing-in" && "Ti porto al login Google..."}
-                {!authLoading && gateState === "checking-profile" && "Controllo profilo..."}
-                {!authLoading && gateState === "loading-ranked" && "Carico la season..."}
-                {!authLoading && gateState === "error" && "C'è stato un problema nel caricamento."}
+                {authLoading && t("auth.checkingSession")}
+                {!authLoading && gateState === "checking-auth" && t("auth.checkingAccess")}
+                {!authLoading && gateState === "signing-in" && t("auth.goingToGoogle")}
+                {!authLoading &&
+                  gateState === "checking-profile" &&
+                  t("ranked.checkingProfile")}
+                {!authLoading &&
+                  gateState === "loading-ranked" &&
+                  t("ranked.loadingSeason")}
+                {!authLoading &&
+                  gateState === "error" &&
+                  t("ranked.problemLoading")}
               </p>
 
               {gateState === "error" ? (
@@ -189,12 +188,8 @@ export default function RankedPage() {
   const official = Boolean(standing?.is_official)
   const runLabel =
     nextRunNumber === null
-      ? locale === "en"
-        ? "All runs completed"
-        : "Tutte le run completate"
-      : locale === "en"
-      ? `Play run ${nextRunNumber}/3`
-      : `Gioca run ${nextRunNumber}/3`
+      ? t("ranked.allRunsCompleted")
+      : `${t("ranked.playRun")} ${nextRunNumber}/3`
 
   return (
     <main className="min-h-screen">
@@ -221,20 +216,20 @@ export default function RankedPage() {
             <div className="space-y-6">
               <div className="space-y-2 text-center">
                 <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  ranked
+                  {t("ranked.title")}
                 </p>
                 <h1 className="text-3xl font-semibold tracking-tight text-white">
                   {season?.display_name}
                 </h1>
                 <p className="text-sm leading-6 text-zinc-400">
-                  3 run da 10 domande. Entri in classifica solo dopo 3/3.
+                  {t("ranked.subtitle")}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Giocatore
+                    {t("ranked.player")}
                   </p>
                   <p className="mt-2 truncate text-sm font-medium text-white">
                     {profileNickname ?? "—"}
@@ -243,7 +238,7 @@ export default function RankedPage() {
 
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Termina tra
+                    {t("ranked.endsIn")}
                   </p>
                   <p className="mt-2 text-sm font-medium text-green-400">
                     {countdown}
@@ -255,7 +250,7 @@ export default function RankedPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-left">
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Run completate
+                      {t("profile.runsCompleted")}
                     </p>
                     <p className="mt-2 text-2xl font-semibold text-white">
                       {standing?.runs_completed ?? 0}/3
@@ -264,10 +259,12 @@ export default function RankedPage() {
 
                   <div className="text-left">
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Stato
+                      {t("ranked.state")}
                     </p>
                     <p className="mt-2 text-sm font-medium text-green-400">
-                      {official ? "Classifica ufficiale" : "Media provvisoria"}
+                      {official
+                        ? t("ranked.officialLeaderboard")
+                        : t("ranked.provisionalAverage")}
                     </p>
                   </div>
                 </div>
@@ -275,7 +272,7 @@ export default function RankedPage() {
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   <div className="rounded-2xl bg-black/30 p-3 text-left">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                      Media score
+                      {t("profile.averageScore")}
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {standing?.avg_score ?? "--"}
@@ -284,16 +281,16 @@ export default function RankedPage() {
 
                   <div className="rounded-2xl bg-black/30 p-3 text-left">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                      Accuracy
+                      {t("profile.averageAccuracy")}
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
-                      {standing?.avg_accuracy ?? "--"}
+                      {standing?.avg_accuracy ?? "--"}%
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-black/30 p-3 text-left">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                      Tempo medio
+                      {t("profile.averageTime")}
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {formatTime(standing?.avg_time_ms ?? null)}
@@ -305,21 +302,21 @@ export default function RankedPage() {
                   {official ? (
                     <>
                       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        Posizione ufficiale
+                        {t("ranked.officialPosition")}
                       </p>
                       <p className="mt-2 text-xl font-semibold text-green-400">
                         {standing?.position
                           ? `#${standing.position} / ${standing.total_ranked_users}`
-                          : "Non disponibile"}
+                          : "—"}
                       </p>
                     </>
                   ) : (
                     <>
                       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        Accesso classifica
+                        {t("ranked.accessLeaderboard")}
                       </p>
                       <p className="mt-2 text-sm text-zinc-300">
-                        Completa tutte e 3 le run per entrare nella classifica ufficiale.
+                        {t("profile.completeThreeRuns")}
                       </p>
                     </>
                   )}
@@ -344,16 +341,16 @@ export default function RankedPage() {
             <div className="space-y-4">
               <div className="text-center">
                 <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                  Top 25 ufficiale
+                  {t("ranked.topOfficial")}
                 </p>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Solo utenti con 3/3 run completate
+                  {t("ranked.topOfficialHint")}
                 </p>
               </div>
 
               {leaderboard.length === 0 ? (
                 <p className="text-center text-sm text-zinc-400">
-                  Nessuna classifica ufficiale ancora disponibile.
+                  {t("ranked.empty")}
                 </p>
               ) : (
                 <div className="space-y-2">
