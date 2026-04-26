@@ -17,6 +17,7 @@ import {
 } from "@/lib/ranked"
 import { trackEvent } from "@/lib/analytics"
 import { formatCooldown, getRankedCooldownMs } from "@/lib/ranked-cooldown"
+import { isRankedNicknameAvailable } from "@/lib/ranked-submit"
 
 type RankedEntry = {
   id: string
@@ -143,17 +144,45 @@ export default function RankedPage() {
 
     if (cleanNickname.length < 2 || !season || cooldownMs > 0) return
 
-    localStorage.setItem("linguo_ranked_nickname", cleanNickname)
-    localStorage.setItem("linguo_ranked_country", countryCode)
+    try {
+      setStarting(true)
 
-    trackEvent("game_start", {
-      mode: "ranked",
-      locale,
-      season: season.season_key,
-    })
+      const nicknameCheck = await isRankedNicknameAvailable(
+        season.id,
+        cleanNickname
+      )
 
-    setStarting(true)
-    router.push("/ranked/play")
+      if (!nicknameCheck.available) {
+        showToast(
+          locale === "en"
+            ? "This nickname is already used in the current season."
+            : "Questo nickname è già usato nella season attuale.",
+          "error"
+        )
+        return
+      }
+
+      localStorage.setItem("linguo_ranked_nickname", cleanNickname)
+      localStorage.setItem("linguo_ranked_country", countryCode)
+
+      trackEvent("game_start", {
+        mode: "ranked",
+        locale,
+        season: season.season_key,
+      })
+
+      router.push("/ranked/play")
+    } catch (error) {
+      console.error(error)
+      showToast(
+        locale === "en"
+          ? "I couldn't validate your ranked nickname."
+          : "Non sono riuscito a verificare il nickname ranked.",
+        "error"
+      )
+    } finally {
+      setStarting(false)
+    }
   }
 
   if (loading) {
@@ -267,7 +296,11 @@ export default function RankedPage() {
                   disabled={nickname.trim().length < 2 || starting || !season || cooldownMs > 0}
                   className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400 disabled:bg-zinc-800 disabled:text-zinc-500"
                 >
-                  {t("ranked.play")}
+                  {starting
+                    ? locale === "en"
+                      ? "Checking..."
+                      : "Controllo..."
+                    : t("ranked.play")}
                 </Button>
               </div>
             </div>
