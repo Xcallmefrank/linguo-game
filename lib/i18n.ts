@@ -10,7 +10,7 @@ const it: Messages = {
   "home.start": "Inizia",
   "home.ranked": "Ranked",
   "home.rankedBadge": "Top 50 globale",
-  "home.rankedHint": "15 domande dure · 10 secondi · season da 3 giorni",
+  "home.rankedHint": "15 domande difficili · 10 secondi · season periodiche",
 
   "mode.normal": "Normale",
   "mode.hard": "Difficile",
@@ -102,7 +102,7 @@ const en: Messages = {
   "home.start": "Start",
   "home.ranked": "Ranked",
   "home.rankedBadge": "Global Top 50",
-  "home.rankedHint": "15 hard questions · 10 seconds · 3-day season",
+  "home.rankedHint": "15 hard questions · 10 seconds · periodic seasons",
 
   "mode.normal": "Normal",
   "mode.hard": "Hard",
