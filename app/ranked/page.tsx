@@ -5,30 +5,30 @@ import { useRouter } from "next/navigation"
 import { motion } from "motion/react"
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
-import { Input } from "@/components/input"
+import { AdSenseBanner } from "@/components/adsense-banner"
 import { useLocale } from "@/components/locale-provider"
 import { useToast } from "@/components/toast-provider"
-import { COUNTRIES, getFlagFromCode } from "@/lib/countries"
+import { useAuth } from "@/components/auth-provider"
+import { signInWithGoogle } from "@/lib/auth"
+import { getMyProfile } from "@/lib/profile"
+import { getFlagFromCode } from "@/lib/countries"
 import {
   getActiveRankedSeason,
+  getMyRankedStanding,
+  getNextRunNumber,
   getRankedLeaderboard,
-  getRankedSeasonHistory,
-  RankedSeason,
-} from "@/lib/ranked"
-import { trackEvent } from "@/lib/analytics"
-import { formatCooldown, getRankedCooldownMs } from "@/lib/ranked-cooldown"
-import { isRankedNicknameAvailable } from "@/lib/ranked-submit"
-import { AdSenseBanner } from "@/components/adsense-banner"
+  type RankedLeaderboardEntry,
+  type RankedSeason,
+  type RankedStanding,
+} from "@/lib/ranked-v2"
 
-type RankedEntry = {
-  id: string
-  nickname: string
-  country_code: string
-  score: number
-  total_questions: number
-  total_time_ms: number
-  accuracy_percent: number
-}
+type GateState =
+  | "checking-auth"
+  | "signing-in"
+  | "checking-profile"
+  | "loading-ranked"
+  | "ready"
+  | "error"
 
 function formatRemaining(endDate: string, locale: "it" | "en") {
   const end = new Date(endDate).getTime()
@@ -47,7 +47,8 @@ function formatRemaining(endDate: string, locale: "it" | "en") {
   return `${days}g ${hours}h ${minutes}m`
 }
 
-function formatTime(ms: number) {
+function formatTime(ms: number | null) {
+  if (ms === null) return "--"
   const totalSeconds = Math.floor(ms / 1000)
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
@@ -56,147 +57,144 @@ function formatTime(ms: number) {
 
 export default function RankedPage() {
   const router = useRouter()
-  const { t, locale } = useLocale()
+  const { locale, t } = useLocale()
   const { showToast } = useToast()
+  const { user, loading: authLoading } = useAuth()
 
-  const [nickname, setNickname] = useState("")
-  const [countryCode, setCountryCode] = useState("IT")
+  const [gateState, setGateState] = useState<GateState>("checking-auth")
   const [season, setSeason] = useState<RankedSeason | null>(null)
-  const [history, setHistory] = useState<RankedSeason[]>([])
-  const [leaderboard, setLeaderboard] = useState<RankedEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [starting, setStarting] = useState(false)
+  const [leaderboard, setLeaderboard] = useState<RankedLeaderboardEntry[]>([])
+  const [standing, setStanding] = useState<RankedStanding | null>(null)
+  const [nextRunNumber, setNextRunNumber] = useState<number | null>(null)
+  const [profileNickname, setProfileNickname] = useState<string | null>(null)
+  const [countryCode, setCountryCode] = useState<string>("IT")
   const [tick, setTick] = useState(0)
-  const [cooldownMs, setCooldownMs] = useState(0)
-
-  useEffect(() => {
-    const savedNickname = localStorage.getItem("linguo_ranked_nickname")
-    const savedCountry = localStorage.getItem("linguo_ranked_country")
-
-    if (savedNickname) setNickname(savedNickname)
-    if (savedCountry) setCountryCode(savedCountry)
-  }, [])
-
-  useEffect(() => {
-    const loadRanked = async () => {
-      try {
-        setLoading(true)
-
-        const [currentSeason, seasons] = await Promise.all([
-          getActiveRankedSeason(),
-          getRankedSeasonHistory(),
-        ])
-
-        const top = await getRankedLeaderboard(currentSeason.id)
-
-        setSeason(currentSeason)
-        setHistory(seasons)
-        setLeaderboard(top.slice(0, 10) as RankedEntry[])
-      } catch (error) {
-        console.error(error)
-        showToast(
-          locale === "en"
-            ? "I couldn't load ranked mode."
-            : "Non sono riuscito a caricare la ranked.",
-          "error"
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadRanked()
-  }, [locale, showToast])
 
   useEffect(() => {
     const interval = setInterval(() => {
       setTick((prev) => prev + 1)
-      setCooldownMs(getRankedCooldownMs())
-    }, 1000)
-
-    setCooldownMs(getRankedCooldownMs())
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadRanked = async () => {
+      try {
+        if (authLoading) {
+          setGateState("checking-auth")
+          return
+        }
+
+        if (!user) {
+          setGateState("signing-in")
+          await signInWithGoogle()
+          return
+        }
+
+        setGateState("checking-profile")
+        const profile = await getMyProfile(user.id)
+
+        if (cancelled) return
+
+        if (!profile) {
+          router.replace("/complete-profile")
+          return
+        }
+
+        setProfileNickname(profile.nickname)
+        setCountryCode(profile.country_code)
+        setGateState("loading-ranked")
+
+        const currentSeason = await getActiveRankedSeason()
+        const [board, myStanding, nextRun] = await Promise.all([
+          getRankedLeaderboard(currentSeason.id),
+          getMyRankedStanding(currentSeason.id, user.id),
+          getNextRunNumber(currentSeason.id, user.id),
+        ])
+
+        if (cancelled) return
+
+        setSeason(currentSeason)
+        setLeaderboard(board)
+        setStanding(myStanding)
+        setNextRunNumber(nextRun)
+        setGateState("ready")
+      } catch (error) {
+        console.error(error)
+        if (!cancelled) {
+          setGateState("error")
+          showToast(
+            locale === "en"
+              ? "I couldn't load ranked mode."
+              : "Non sono riuscito a caricare la ranked.",
+            "error"
+          )
+        }
+      }
+    }
+
+    void loadRanked()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authLoading, user, router, locale, showToast])
 
   const countdown = useMemo(() => {
     if (!season) return "--"
     return formatRemaining(season.ends_at, locale)
   }, [season, locale, tick])
 
-  const sortedCountries = useMemo(() => {
-    const priority =
-      locale === "it"
-        ? ["IT", "GB", "US", "CA", "FR", "DE", "ES", "JP"]
-        : ["US", "GB", "CA", "IT", "FR", "DE", "ES", "JP"]
-
-    const priorityItems = COUNTRIES.filter((c) => priority.includes(c.code))
-      .sort((a, b) => priority.indexOf(a.code) - priority.indexOf(b.code))
-
-    const rest = COUNTRIES.filter((c) => !priority.includes(c.code)).sort((a, b) =>
-      a.label.localeCompare(b.label)
-    )
-
-    return [...priorityItems, ...rest]
-  }, [locale])
-
-  const handleStartRanked = async () => {
-    const cleanNickname = nickname.trim()
-
-    if (cleanNickname.length < 2 || !season || cooldownMs > 0) return
-
-    try {
-      setStarting(true)
-
-      const nicknameCheck = await isRankedNicknameAvailable(
-        season.id,
-        cleanNickname
-      )
-
-      if (!nicknameCheck.available) {
-        showToast(
-          locale === "en"
-            ? "This nickname is already used in the current season."
-            : "Questo nickname è già usato nella season attuale.",
-          "error"
-        )
-        return
-      }
-
-      localStorage.setItem("linguo_ranked_nickname", cleanNickname)
-      localStorage.setItem("linguo_ranked_country", countryCode)
-
-      trackEvent("game_start", {
-        mode: "ranked",
-        locale,
-        season: season.season_key,
-      })
-
-      router.push("/ranked/play")
-    } catch (error) {
-      console.error(error)
-      showToast(
-        locale === "en"
-          ? "I couldn't validate your ranked nickname."
-          : "Non sono riuscito a verificare il nickname ranked.",
-        "error"
-      )
-    } finally {
-      setStarting(false)
-    }
+  const handleStartRun = () => {
+    if (!nextRunNumber) return
+    router.push("/ranked/play")
   }
 
-  if (loading) {
+  if (authLoading || gateState !== "ready") {
     return (
       <main className="min-h-screen">
         <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
           <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <p className="text-zinc-300">{t("common.loading")}</p>
+            <div className="space-y-3">
+              <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                ranked
+              </p>
+              <p className="text-base text-zinc-300">
+                {authLoading && "Controllo sessione..."}
+                {!authLoading && gateState === "checking-auth" && "Controllo accesso..."}
+                {!authLoading && gateState === "signing-in" && "Ti porto al login Google..."}
+                {!authLoading && gateState === "checking-profile" && "Controllo profilo..."}
+                {!authLoading && gateState === "loading-ranked" && "Carico la season..."}
+                {!authLoading && gateState === "error" && "C'è stato un problema nel caricamento."}
+              </p>
+
+              {gateState === "error" ? (
+                <Button
+                  onClick={() => router.push("/")}
+                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+                >
+                  {t("common.backHome")}
+                </Button>
+              ) : null}
+            </div>
           </Card>
         </div>
       </main>
     )
   }
+
+  const official = Boolean(standing?.is_official)
+  const runLabel =
+    nextRunNumber === null
+      ? locale === "en"
+        ? "All runs completed"
+        : "Tutte le run completate"
+      : locale === "en"
+      ? `Play run ${nextRunNumber}/3`
+      : `Gioca run ${nextRunNumber}/3`
 
   return (
     <main className="min-h-screen">
@@ -210,39 +208,42 @@ export default function RankedPage() {
           <div className="flex justify-start">
             <button
               type="button"
-              onClick={() => router.push("/")}
-              className="text-sm text-zinc-400 transition-colors duration-200 hover:text-white"
+              onClick={() => {
+                window.location.href = "/"
+              }}
+              className="h-10 rounded-full border border-zinc-800 bg-black/30 px-4 text-sm font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
             >
               ← {t("common.backHome")}
             </button>
           </div>
+
           <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
             <div className="space-y-6">
               <div className="space-y-2 text-center">
                 <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  {t("ranked.title")}
+                  ranked
                 </p>
                 <h1 className="text-3xl font-semibold tracking-tight text-white">
-                  {t("ranked.heading")}
+                  {season?.display_name}
                 </h1>
                 <p className="text-sm leading-6 text-zinc-400">
-                  {t("ranked.subtitle")}
+                  3 run da 10 domande. Entri in classifica solo dopo 3/3.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    {t("ranked.currentSeason")}
+                    Giocatore
                   </p>
-                  <p className="mt-2 text-sm font-medium text-white">
-                    {season?.display_name ?? "--"}
+                  <p className="mt-2 truncate text-sm font-medium text-white">
+                    {profileNickname ?? "—"}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    {t("ranked.endsIn")}
+                    Termina tra
                   </p>
                   <p className="mt-2 text-sm font-medium text-green-400">
                     {countdown}
@@ -250,59 +251,89 @@ export default function RankedPage() {
                 </div>
               </div>
 
-              {cooldownMs > 0 ? (
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-left">
-                  <p className="text-xs uppercase tracking-[0.18em] text-amber-300">
-                    {t("ranked.cooldownActive")}
-                  </p>
-                  <p className="mt-2 text-sm text-zinc-200">
-                    {t("ranked.cooldownText")}{" "}
-                    <span className="font-semibold text-amber-300">
-                      {formatCooldown(cooldownMs, locale)}
-                    </span>
-                  </p>
+              <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-left">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Run completate
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-white">
+                      {standing?.runs_completed ?? 0}/3
+                    </p>
+                  </div>
+
+                  <div className="text-left">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Stato
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-green-400">
+                      {official ? "Classifica ufficiale" : "Media provvisoria"}
+                    </p>
+                  </div>
                 </div>
-              ) : null}
 
-              <div className="space-y-3">
-                <label className="block text-sm text-zinc-300">
-                  {t("ranked.nickname")}
-                </label>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl bg-black/30 p-3 text-left">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                      Media score
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {standing?.avg_score ?? "--"}
+                    </p>
+                  </div>
 
-                <Input
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  maxLength={14}
-                  className="w-full rounded-2xl border-zinc-700 bg-zinc-950/80 px-5 py-4 text-center text-base text-white shadow-inner placeholder:text-zinc-500"
-                />
+                  <div className="rounded-2xl bg-black/30 p-3 text-left">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                      Accuracy
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {standing?.avg_accuracy ?? "--"}
+                    </p>
+                  </div>
 
-                <label className="block pt-1 text-sm text-zinc-300">
-                  {t("ranked.country")}
-                </label>
+                  <div className="rounded-2xl bg-black/30 p-3 text-left">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                      Tempo medio
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {formatTime(standing?.avg_time_ms ?? null)}
+                    </p>
+                  </div>
+                </div>
 
-                <select
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-950/80 px-4 text-base text-white outline-none"
-                >
-                  {sortedCountries.map((country) => (
-                    <option key={country.code} value={country.code}>
-                      {country.flag} {country.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-4 rounded-2xl border border-green-500/15 bg-green-500/8 p-4 text-left">
+                  {official ? (
+                    <>
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        Posizione ufficiale
+                      </p>
+                      <p className="mt-2 text-xl font-semibold text-green-400">
+                        {standing?.position
+                          ? `#${standing.position} / ${standing.total_ranked_users}`
+                          : "Non disponibile"}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        Accesso classifica
+                      </p>
+                      <p className="mt-2 text-sm text-zinc-300">
+                        Completa tutte e 3 le run per entrare nella classifica ufficiale.
+                      </p>
+                    </>
+                  )}
+                </div>
 
-                <Button
-                  onClick={handleStartRanked}
-                  disabled={nickname.trim().length < 2 || starting || !season || cooldownMs > 0}
-                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400 disabled:bg-zinc-800 disabled:text-zinc-500"
-                >
-                  {starting
-                    ? locale === "en"
-                      ? "Checking..."
-                      : "Controllo..."
-                    : t("ranked.play")}
-                </Button>
+                <div className="mt-4">
+                  <Button
+                    onClick={handleStartRun}
+                    disabled={nextRunNumber === null}
+                    className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400 disabled:bg-zinc-800 disabled:text-zinc-500"
+                  >
+                    {runLabel}
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
@@ -313,19 +344,22 @@ export default function RankedPage() {
             <div className="space-y-4">
               <div className="text-center">
                 <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                  {t("ranked.top10")}
+                  Top 25 ufficiale
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">
+                  Solo utenti con 3/3 run completate
                 </p>
               </div>
 
               {leaderboard.length === 0 ? (
                 <p className="text-center text-sm text-zinc-400">
-                  {t("ranked.empty")}
+                  Nessuna classifica ufficiale ancora disponibile.
                 </p>
               ) : (
                 <div className="space-y-2">
                   {leaderboard.map((entry, index) => (
                     <div
-                      key={entry.id}
+                      key={entry.user_id}
                       className="grid grid-cols-[40px_1fr_auto_auto] items-center gap-3 rounded-2xl bg-zinc-950/70 px-3 py-3"
                     >
                       <p className="text-sm text-zinc-500">#{index + 1}</p>
@@ -337,56 +371,16 @@ export default function RankedPage() {
                       </div>
 
                       <p className="text-sm text-green-400">
-                        {entry.score}/{entry.total_questions}
+                        {entry.avg_score.toFixed(2)}
                       </p>
 
                       <p className="text-sm text-zinc-400">
-                        {formatTime(entry.total_time_ms)}
+                        {formatTime(entry.avg_time_ms)}
                       </p>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          </Card>
-
-          <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <div className="space-y-4">
-              <div className="text-center">
-                <p className="text-sm uppercase tracking-[0.18em] text-zinc-500">
-                  Season history
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                {history.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl bg-zinc-950/70 px-4 py-3"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-white">
-                          {item.display_name}
-                        </p>
-                        <p className="text-xs text-zinc-500">
-                          {new Date(item.starts_at).toLocaleDateString()} -{" "}
-                          {new Date(item.ends_at).toLocaleDateString()}
-                        </p>
-                      </div>
-
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.is_active
-                          ? "bg-green-500/15 text-green-400"
-                          : "bg-zinc-800 text-zinc-400"
-                          }`}
-                      >
-                        {item.is_active ? "Active" : "Archived"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           </Card>
         </motion.div>

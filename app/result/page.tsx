@@ -10,17 +10,20 @@ import { AdSenseBanner } from "@/components/adsense-banner"
 import { ResultShareCard } from "@/components/result-share-card"
 import { useToast } from "@/components/toast-provider"
 import { useLocale } from "@/components/locale-provider"
+import { useAuth } from "@/components/auth-provider"
 import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
 import { GameMode, getResultMessage } from "@/lib/game-mode"
 import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 import { trackEvent } from "@/lib/analytics"
+import { saveGameSession } from "@/lib/game-sessions"
 
 export default function ResultPage() {
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showToast } = useToast()
   const { t, locale } = useLocale()
+  const { user } = useAuth()
 
   const [nickname, setNickname] = useState("")
   const [score, setScore] = useState(0)
@@ -31,6 +34,7 @@ export default function ResultPage() {
   const [creatingChallenge, setCreatingChallenge] = useState(false)
   const [existingChallengeCode, setExistingChallengeCode] = useState<string | null>(null)
   const [downloadingCard, setDownloadingCard] = useState(false)
+  const [sessionSaved, setSessionSaved] = useState(false)
 
   useEffect(() => {
     const savedName = localStorage.getItem("linguo_nickname")
@@ -78,6 +82,33 @@ export default function ResultPage() {
       locale,
     })
   }, [nickname, score, total, mode, locale])
+
+  const stats = getRunStats(answers)
+
+  useEffect(() => {
+    const saveSession = async () => {
+      if (!user) return
+      if (!nickname || total === 0) return
+      if (sessionSaved) return
+
+      try {
+        await saveGameSession({
+          userId: user.id,
+          mode,
+          score,
+          totalQuestions: total,
+          bestStreak: stats.bestStreak,
+          answers,
+        })
+
+        setSessionSaved(true)
+      } catch (error) {
+        console.error("Errore salvataggio game session:", error)
+      }
+    }
+
+    void saveSession()
+  }, [user, nickname, total, sessionSaved, mode, score, stats.bestStreak, answers])
 
   const handleReplay = () => {
     localStorage.removeItem("linguo_last_challenge_code")
@@ -210,7 +241,6 @@ export default function ResultPage() {
   }
 
   const resultMessage = getResultMessage(mode, score, total, locale)
-  const stats = getRunStats(answers)
 
   return (
     <main className="min-h-screen">

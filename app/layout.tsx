@@ -8,6 +8,7 @@ import { ToastProvider } from "@/components/toast-provider"
 import { LocaleProvider } from "@/components/locale-provider"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { Analytics } from "@vercel/analytics/next"
+import { AuthProvider } from "@/components/auth-provider"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -43,24 +44,24 @@ export default function RootLayout({
         ) : null}
 
         <ToastProvider>
-          <LocaleProvider>
-            <div className="relative min-h-screen overflow-x-hidden text-white">
-              <BackgroundLayer />
+          <AuthProvider>
+            <LocaleProvider>
+              <div className="relative min-h-screen overflow-x-hidden text-white">
+                <BackgroundLayer />
 
-              <div className="pointer-events-none absolute right-4 top-4 z-20">
-                <div className="pointer-events-auto">
-                  <LanguageSwitcher />
+                <div className="pointer-events-none absolute right-4 top-4 z-20">
+                  <div className="pointer-events-auto">
+                    <LanguageSwitcher />
+                  </div>
+                </div>
+
+                <div className="relative z-10 flex min-h-screen flex-col">
+                  <div className="flex-1">{children}</div>
+                  <SiteFooter />
                 </div>
               </div>
-
-              <div className="relative z-10 flex min-h-screen flex-col">
-                <div className="flex-1">{children}</div>
-                <SiteFooter />
-              </div>
-
-              <Analytics />
-            </div>
-          </LocaleProvider>
+            </LocaleProvider>
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

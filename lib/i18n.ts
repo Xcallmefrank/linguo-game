@@ -118,7 +118,7 @@ const en: Messages = {
   "common.downloadCard": "Download card",
   "common.prepareCard": "Preparing card...",
   "common.shareChallenge": "Share challenge",
-  "common.createChallenge": "Creating challenge...",
+  "common.createChallenge": "Creating chall enge...",
   "common.challengeStatus": "View challenge status",
 
   "quiz.score": "Score",
