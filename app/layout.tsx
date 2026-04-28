@@ -63,6 +63,12 @@ export default function RootLayout({
             </LocaleProvider>
           </AuthProvider>
         </ToastProvider>
+        <html lang="it">
+          <body>
+            {children}
+            <Analytics />
+          </body>
+        </html>
       </body>
     </html>
   )

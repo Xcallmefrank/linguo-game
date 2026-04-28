@@ -1,3 +1,5 @@
+import { track } from "@vercel/analytics"
+
 type AnalyticsEventName =
   | "home_view"
   | "game_start"
@@ -8,7 +10,10 @@ type AnalyticsEventName =
   | "locale_changed"
   | "mode_selected"
 
-type AnalyticsPayload = Record<string, string | number | boolean | null | undefined>
+type AnalyticsPayload = Record<
+  string,
+  string | number | boolean | null | undefined
+>
 
 export function trackEvent(
   event: AnalyticsEventName,
@@ -16,13 +21,9 @@ export function trackEvent(
 ) {
   if (typeof window === "undefined") return
 
-  // Per ora debug leggero in dev.
   if (process.env.NODE_ENV === "development") {
     console.log("[analytics]", event, payload)
   }
 
-  // Placeholder pronto per strumenti futuri:
-  // - Vercel custom events su Pro/Enterprise
-  // - GA4
-  // - PostHog
+  track(event, payload)
 }
