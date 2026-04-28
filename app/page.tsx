@@ -206,7 +206,7 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={handleGoogleLogin}
-                      className="group relative h-14 w-full overflow-hidden rounded-[22px] border border-white/10 bg-zinc-950/80 px-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-green-500/30"
+                      className="group relative h-[62px] w-full overflow-hidden rounded-[22px] border border-white/10 bg-zinc-950/80 px-4 text-left shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-green-500/30"
                     >
                       <span className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-green-400/10 to-transparent transition-opacity duration-300 group-hover:opacity-0" />
 
@@ -220,9 +220,9 @@ export default function HomePage() {
 
                       <span className="absolute inset-0 bg-gradient-to-r from-black/15 via-transparent to-black/15" />
 
-                      <span className="relative z-10 flex h-full items-center justify-between">
-                        <span className="flex items-center gap-3">
-                          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 shadow-inner backdrop-blur-md transition-transform duration-300 group-hover:scale-105">
+                      <span className="relative z-10 flex h-full items-center justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/50 shadow-inner backdrop-blur-md transition-transform duration-300 group-hover:scale-105">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               viewBox="0 0 48 48"
@@ -248,20 +248,17 @@ export default function HomePage() {
                             </svg>
                           </span>
 
-                          <span className="text-left">
-                            <span className="inline-block rounded-full border border-white/10 bg-black/45 px-3 py-1 text-base font-semibold text-white backdrop-blur-md">
+                          <span className="min-w-0 text-left">
+                            <span className="block truncate text-[15px] font-semibold text-white sm:text-base">
                               Accedi con Google
                             </span>
-
-                            <span className="mt-1 block">
-                              <span className="inline-block rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-xs text-zinc-200 backdrop-blur-md">
-                                Accedi e salva i tuoi progressi
-                              </span>
+                            <span className="mt-0.5 block truncate text-xs text-zinc-200 sm:text-sm">
+                              Accedi e salva i tuoi progressi
                             </span>
                           </span>
                         </span>
 
-                        <span className="relative flex items-center gap-2">
+                        <span className="relative flex shrink-0 items-center gap-2">
                           <span className="h-2.5 w-2.5 rounded-full bg-green-400 shadow-[0_0_14px_rgba(74,222,128,0.7)] transition-transform duration-300 group-hover:scale-110" />
                           <span className="text-green-300 transition-transform duration-300 group-hover:translate-x-0.5">
                             →
@@ -309,7 +306,7 @@ export default function HomePage() {
                       const active = selectedMode === mode
 
                       return (
-                        <button
+                        <motion.button
                           key={mode}
                           type="button"
                           onClick={() => {
@@ -319,25 +316,39 @@ export default function HomePage() {
                               locale,
                             })
                           }}
-                          className={`rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${
-                            active
-                              ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
-                              : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
-                          }`}
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.995 }}
+                          className={`relative overflow-hidden rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
+                            ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
+                            : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
+                            }`}
                         >
-                          <div className="space-y-1">
-                            <p
-                              className={`font-medium ${
-                                active ? "text-green-400" : "text-white"
-                              }`}
-                            >
-                              {t(`mode.${mode}`)}
-                            </p>
-                            <p className="text-sm text-zinc-400">
-                              {t(`mode.${mode}.desc`)}
-                            </p>
+                          <div className="relative z-10">
+                            <div className="space-y-1">
+                              <p
+                                className={`font-medium ${active ? "text-green-400" : "text-white"
+                                  }`}
+                              >
+                                {t(`mode.${mode}`)}
+                              </p>
+                              <p className="text-sm text-zinc-400">
+                                {t(`mode.${mode}.desc`)}
+                              </p>
+                            </div>
+
+                            <div className="mt-3 h-7 overflow-hidden">
+                              {mode === "normal" ? (
+                                <SeamlessSoftWave active={active} />
+                              ) : null}
+                              {mode === "hard" ? (
+                                <SeamlessSharpWave active={active} />
+                              ) : null}
+                              {mode === "similar" ? (
+                                <SeamlessDoubleWave active={active} />
+                              ) : null}
+                            </div>
                           </div>
-                        </button>
+                        </motion.button>
                       )
                     })}
                   </div>
@@ -365,49 +376,99 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  <button
+                  <motion.button
                     type="button"
                     onClick={handleOpenRanked}
-                    className="group relative h-16 w-full overflow-hidden rounded-[22px] border border-white/10 bg-zinc-950/80 px-5 shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-green-500/30"
+                    whileHover={{ scale: 1.012 }}
+                    whileTap={{ scale: 0.995 }}
+                    className="group relative h-[68px] w-full overflow-hidden rounded-[22px] border border-white/10 shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-red-400/40"
                   >
-                    <span className="absolute inset-0 bg-gradient-to-r from-green-500/25 via-green-400/15 to-transparent transition-opacity duration-300 group-hover:opacity-0" />
+                    {/* metà sinistra rossa */}
+                    <div className="absolute inset-y-0 left-0 w-1/2 bg-[linear-gradient(135deg,rgba(127,29,29,0.98),rgba(220,38,38,0.9))]" />
 
-                    <span
-                      className="absolute inset-0 opacity-0 transition-all duration-300 group-hover:opacity-100"
-                      style={{
-                        backgroundImage:
-                          "linear-gradient(45deg, rgba(255,255,255,0.92) 25%, rgba(10,10,10,0.96) 25%, rgba(10,10,10,0.96) 50%, rgba(255,255,255,0.92) 50%, rgba(255,255,255,0.92) 75%, rgba(10,10,10,0.96) 75%, rgba(10,10,10,0.96) 100%)",
-                        backgroundSize: "26px 26px",
-                        transform: "skewX(-12deg) scale(1.08)",
-                      }}
+                    {/* bagliore rosso vivo */}
+                    <motion.div
+                      animate={{ opacity: [0.2, 0.38, 0.2], scale: [1, 1.04, 1] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      className="pointer-events-none absolute left-0 top-0 h-full w-[46%] bg-[radial-gradient(circle_at_30%_50%,rgba(255,120,120,0.35),transparent_60%)] blur-xl"
                     />
 
-                    <span className="absolute inset-0 bg-gradient-to-r from-black/15 via-transparent to-black/15" />
+                    {/* metà destra scacchiera premium */}
+                    <div className="absolute inset-y-0 right-0 w-1/2 overflow-hidden bg-zinc-950">
+                      <motion.div
+                        animate={{ x: ["-8%", "8%", "-8%"] }}
+                        transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute inset-[-10%]"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(45deg, rgba(255,255,255,0.96) 25%, rgba(12,12,12,0.98) 25%, rgba(12,12,12,0.98) 50%, rgba(255,255,255,0.96) 50%, rgba(255,255,255,0.96) 75%, rgba(12,12,12,0.98) 75%, rgba(12,12,12,0.98) 100%)",
+                          backgroundSize: "22px 22px",
+                          transform: "skewX(-14deg) scale(1.08)",
+                          opacity: 0.9,
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),transparent_30%,transparent_70%,rgba(255,255,255,0.04))]" />
+                    </div>
 
-                    <span className="relative z-10 flex h-full items-center justify-between">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg shadow-inner backdrop-blur-md transition-transform duration-300 group-hover:scale-105">
-                          🏁
-                        </span>
+                    {/* rifiniture */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/6 via-transparent to-white/6" />
+                    <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/12" />
 
-                        <span className="text-left">
-                          <span className="inline-block rounded-full border border-white/10 bg-black/45 px-3 py-1 text-base font-semibold text-white backdrop-blur-md">
+                    <div className="relative z-10 flex h-full items-center justify-between gap-3 px-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/35 shadow-inner backdrop-blur-md">
+                          <motion.div
+                            animate={{ rotate: [-4, 4, -4] }}
+                            transition={{ duration: 2.3, repeat: Infinity, ease: "easeInOut" }}
+                            className="text-white"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none">
+                              <path
+                                d="M5 3v18"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M6.5 5.5h11v9h-11z"
+                                fill="currentColor"
+                                opacity="0.12"
+                              />
+                              <path
+                                d="M6.5 5.5h2.75v2.25H6.5zm5.5 0h2.75v2.25H12zm-2.75 2.25H12V10H9.25zm5.5 2.25h2.75V12.5H14.75zM6.5 10h2.75v2.5H6.5zm5.5 2.5H14.75V15H12zm-2.75 0H12V15H9.25z"
+                                fill="currentColor"
+                              />
+                            </svg>
+                          </motion.div>
+                        </div>
+
+                        <div className="min-w-0 text-left">
+                          <p className="truncate text-base font-semibold text-white">
                             {t("home.ranked")}
-                          </span>
+                          </p>
+                          <p className="mt-0.5 truncate text-sm text-white/85">
+                            {t("home.globalChallenge")}
+                          </p>
+                        </div>
+                      </div>
 
-                          <span className="mt-1 block">
-                            <span className="inline-block rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-xs text-zinc-200 backdrop-blur-md">
-                              Global challenge
-                            </span>
-                          </span>
-                        </span>
-                      </span>
-
-                      <span className="rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-green-300 backdrop-blur-md transition-all duration-300 group-hover:border-black/20 group-hover:bg-white/75 group-hover:text-black">
-                        Top 25
-                      </span>
-                    </span>
-                  </button>
+                      <div className="shrink-0">
+                        <motion.div
+                          animate={{
+                            boxShadow: [
+                              "0 8px 20px rgba(0,0,0,0.18)",
+                              "0 10px 24px rgba(220,38,38,0.18)",
+                              "0 8px 20px rgba(0,0,0,0.18)",
+                            ],
+                          }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                          className="rounded-full border border-black/20 bg-white px-3 py-1 text-xs font-extrabold tracking-[0.18em] text-black"
+                        >
+                          TOP 25
+                        </motion.div>
+                      </div>
+                    </div>
+                  </motion.button>
                 </div>
               </div>
             </div>
@@ -499,5 +560,184 @@ export default function HomePage() {
         ) : null}
       </AnimatePresence>
     </main>
+  )
+}
+
+function SeamlessSoftWave({ active }: { active: boolean }) {
+  return (
+    <svg viewBox="0 0 280 28" className="h-full w-full" preserveAspectRatio="none">
+      <defs>
+        <path
+          id="soft-wave-segment"
+          d="M0 14 C14 8 28 20 42 14 C56 8 70 20 84 14 C98 8 112 20 126 14 C140 8 154 20 168 14"
+        />
+      </defs>
+
+      <motion.g
+        animate={{ x: [0, -168] }}
+        transition={{ duration: 5.4, repeat: Infinity, ease: "linear" }}
+        style={{ opacity: active ? 0.95 : 0.45 }}
+      >
+        <use
+          href="#soft-wave-segment"
+          x="0"
+          y="0"
+          fill="none"
+          stroke={active ? "#22c55e" : "#71717a"}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <use
+          href="#soft-wave-segment"
+          x="168"
+          y="0"
+          fill="none"
+          stroke={active ? "#22c55e" : "#71717a"}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <use
+          href="#soft-wave-segment"
+          x="336"
+          y="0"
+          fill="none"
+          stroke={active ? "#22c55e" : "#71717a"}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </motion.g>
+    </svg>
+  )
+}
+
+function SeamlessSharpWave({ active }: { active: boolean }) {
+  return (
+    <svg viewBox="0 0 280 32" className="h-full w-full" preserveAspectRatio="none">
+      <defs>
+        <path
+          id="hard-wave-segment"
+          d="M0 16 C14 1 28 31 42 16 C56 1 70 31 84 16 C98 1 112 31 126 16 C140 1 154 31 168 16"
+        />
+      </defs>
+
+      <motion.g
+        animate={{ x: [0, -168] }}
+        transition={{ duration: 4.6, repeat: Infinity, ease: "linear" }}
+      >
+        {[0, 168, 336].map((offset) => (
+          <g key={offset}>
+            {/* glow rosso esterno */}
+            <use
+              href="#hard-wave-segment"
+              x={offset}
+              y="0"
+              fill="none"
+              stroke="#dc2626"
+              strokeWidth="7"
+              strokeLinecap="round"
+              style={{ opacity: active ? 0.16 : 0.06 }}
+            />
+
+            {/* glow rosso intermedio */}
+            <use
+              href="#hard-wave-segment"
+              x={offset}
+              y="0"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth="4.5"
+              strokeLinecap="round"
+              style={{ opacity: active ? 0.26 : 0.1 }}
+            />
+
+            {/* linea principale rossa */}
+            <use
+              href="#hard-wave-segment"
+              x={offset}
+              y="0"
+              fill="none"
+              stroke={active ? "#f87171" : "#a1a1aa"}
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              style={{ opacity: active ? 1 : 0.5 }}
+            />
+          </g>
+        ))}
+      </motion.g>
+    </svg>
+  )
+}
+
+function SeamlessDoubleWave({ active }: { active: boolean }) {
+  return (
+    <svg viewBox="0 0 280 28" className="h-full w-full" preserveAspectRatio="none">
+      <defs>
+        <path
+          id="double-wave-top"
+          d="M0 9 C14 4 28 14 42 9 C56 4 70 14 84 9 C98 4 112 14 126 9 C140 4 154 14 168 9"
+        />
+        <path
+          id="double-wave-bottom"
+          d="M0 19 C14 14 28 24 42 19 C56 14 70 24 84 19 C98 14 112 24 126 19 C140 14 154 24 168 19"
+        />
+      </defs>
+
+      <motion.g
+        animate={{ x: [0, -168] }}
+        transition={{ duration: 4.4, repeat: Infinity, ease: "linear" }}
+      >
+        {[0, 168, 336].map((offset) => (
+          <g key={offset}>
+            {/* linea superiore blu */}
+            <use
+              href="#double-wave-top"
+              x={offset}
+              y="0"
+              fill="none"
+              stroke={active ? "#2563eb" : "#71717a"}
+              strokeWidth="2"
+              strokeLinecap="round"
+              style={{ opacity: active ? 0.95 : 0.42 }}
+            />
+
+            {/* piccolo glow blu */}
+            <use
+              href="#double-wave-top"
+              x={offset}
+              y="0"
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth="4.2"
+              strokeLinecap="round"
+              style={{ opacity: active ? 0.10 : 0.03 }}
+            />
+
+            {/* linea inferiore celeste */}
+            <use
+              href="#double-wave-bottom"
+              x={offset}
+              y="0"
+              fill="none"
+              stroke={active ? "#67e8f9" : "#71717a"}
+              strokeWidth="2"
+              strokeLinecap="round"
+              style={{ opacity: active ? 0.9 : 0.3 }}
+            />
+
+            {/* piccolo glow celeste */}
+            <use
+              href="#double-wave-bottom"
+              x={offset}
+              y="0"
+              fill="none"
+              stroke="#22d3ee"
+              strokeWidth="4"
+              strokeLinecap="round"
+              style={{ opacity: active ? 0.12 : 0.04 }}
+            />
+          </g>
+        ))}
+      </motion.g>
+    </svg>
   )
 }
