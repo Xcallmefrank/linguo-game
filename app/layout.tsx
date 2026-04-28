@@ -60,15 +60,11 @@ export default function RootLayout({
                   <SiteFooter />
                 </div>
               </div>
+
+              <Analytics />
             </LocaleProvider>
           </AuthProvider>
         </ToastProvider>
-        <html lang="it">
-          <body>
-            {children}
-            <Analytics />
-          </body>
-        </html>
       </body>
     </html>
   )
