@@ -16,9 +16,8 @@ type GoogleFcWindow = Window & {
 
 function isConsentApiReady(googleWindow: GoogleFcWindow) {
   return Boolean(
-    googleWindow.googlefc &&
-      googleWindow.googlefc.callbackQueue &&
-      typeof googleWindow.googlefc.showRevocationMessage === "function"
+    googleWindow.googlefc?.callbackQueue &&
+      typeof googleWindow.googlefc?.showRevocationMessage === "function"
   )
 }
 
@@ -43,7 +42,9 @@ export function SiteFooter() {
       return
     }
 
-    googleWindow.googlefc.callbackQueue.push({
+    const queue = googleWindow.googlefc.callbackQueue
+
+    queue.push({
       CONSENT_API_READY: () => {
         setConsentReady(true)
       },
@@ -70,13 +71,12 @@ export function SiteFooter() {
     const googleWindow = window as GoogleFcWindow
 
     if (
-      googleWindow.googlefc &&
-      googleWindow.googlefc.callbackQueue &&
+      googleWindow.googlefc?.callbackQueue &&
       typeof googleWindow.googlefc.showRevocationMessage === "function"
     ) {
-      googleWindow.googlefc.callbackQueue.push(
-        googleWindow.googlefc.showRevocationMessage
-      )
+      const queue = googleWindow.googlefc.callbackQueue
+      const showRevocationMessage = googleWindow.googlefc.showRevocationMessage
+      queue.push(showRevocationMessage)
       return
     }
 
@@ -98,8 +98,9 @@ export function SiteFooter() {
           <button
             type="button"
             onClick={handleConsentClick}
-            disabled={!consentReady}
-            className="transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className={`transition-colors hover:text-white ${
+              consentReady ? "text-zinc-400" : "text-zinc-500"
+            }`}
           >
             {t("footer.consent")}
           </button>
