@@ -16,9 +16,8 @@ type GoogleFcWindow = Window & {
 
 function isConsentApiReady(googleWindow: GoogleFcWindow) {
   return Boolean(
-    googleWindow.googlefc &&
-      googleWindow.googlefc.callbackQueue &&
-      typeof googleWindow.googlefc.showRevocationMessage === "function"
+    googleWindow.googlefc?.callbackQueue &&
+      typeof googleWindow.googlefc?.showRevocationMessage === "function"
   )
 }
 
@@ -43,7 +42,9 @@ export function SiteFooter() {
       return
     }
 
-    googleWindow.googlefc.callbackQueue.push({
+    const queue = googleWindow.googlefc.callbackQueue
+
+    queue.push({
       CONSENT_API_READY: () => {
         setConsentReady(true)
       },
@@ -70,17 +71,17 @@ export function SiteFooter() {
     const googleWindow = window as GoogleFcWindow
 
     if (
-      googleWindow.googlefc &&
-      googleWindow.googlefc.callbackQueue &&
-      typeof googleWindow.googlefc.showRevocationMessage === "function"
+      !googleWindow.googlefc?.callbackQueue ||
+      typeof googleWindow.googlefc.showRevocationMessage !== "function"
     ) {
-      googleWindow.googlefc.callbackQueue.push(
-        googleWindow.googlefc.showRevocationMessage
-      )
+      showToast(t("toast.consentUnavailable"), "info")
       return
     }
 
-    showToast(t("toast.consentUnavailable"), "info")
+    const queue = googleWindow.googlefc.callbackQueue
+    const showRevocationMessage = googleWindow.googlefc.showRevocationMessage
+
+    queue.push(showRevocationMessage)
   }
 
   return (
