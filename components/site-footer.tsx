@@ -1,108 +1,81 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useState } from "react"
-import { useToast } from "@/components/toast-provider"
+import Link from "next/link"
 import { useLocale } from "@/components/locale-provider"
 
 type GoogleFcWindow = Window & {
   googlefc?: {
-    callbackQueue?: {
-      push: (item: unknown) => number
-    }
+    callbackQueue?: Array<() => void>
     showRevocationMessage?: () => void
   }
 }
 
-function isConsentApiReady(googleWindow: GoogleFcWindow) {
-  return Boolean(
-    googleWindow.googlefc?.callbackQueue &&
-      typeof googleWindow.googlefc?.showRevocationMessage === "function"
-  )
-}
-
 export function SiteFooter() {
-  const [consentReady, setConsentReady] = useState(false)
-  const { showToast } = useToast()
-  const { t } = useLocale()
+  const { locale } = useLocale()
+  const [consentAvailable, setConsentAvailable] = useState(false)
 
   useEffect(() => {
-    if (typeof window === "undefined") return
+    const checkConsentApi = () => {
+      const googleWindow = window as GoogleFcWindow
 
-    const googleWindow = window as GoogleFcWindow
+      const isAvailable =
+        typeof googleWindow.googlefc?.callbackQueue?.push === "function" &&
+        typeof googleWindow.googlefc?.showRevocationMessage === "function"
 
-    googleWindow.googlefc = googleWindow.googlefc || {}
-    googleWindow.googlefc.callbackQueue =
-      googleWindow.googlefc.callbackQueue || {
-        push: () => 0,
-      }
-
-    if (isConsentApiReady(googleWindow)) {
-      setConsentReady(true)
-      return
+      setConsentAvailable(isAvailable)
     }
 
-    const queue = googleWindow.googlefc.callbackQueue
+    checkConsentApi()
 
-    queue.push({
-      CONSENT_API_READY: () => {
-        setConsentReady(true)
-      },
-    })
-
-    const interval = window.setInterval(() => {
-      if (isConsentApiReady(googleWindow)) {
-        setConsentReady(true)
-        window.clearInterval(interval)
-      }
-    }, 800)
-
-    const timeout = window.setTimeout(() => {
-      window.clearInterval(interval)
-    }, 10000)
+    const interval = window.setInterval(checkConsentApi, 500)
 
     return () => {
       window.clearInterval(interval)
-      window.clearTimeout(timeout)
     }
   }, [])
 
   const handleConsentClick = () => {
     const googleWindow = window as GoogleFcWindow
+    const callbackQueue = googleWindow.googlefc?.callbackQueue
+    const showRevocationMessage = googleWindow.googlefc?.showRevocationMessage
 
     if (
-      googleWindow.googlefc?.callbackQueue &&
-      typeof googleWindow.googlefc.showRevocationMessage === "function"
+      typeof callbackQueue?.push === "function" &&
+      typeof showRevocationMessage === "function"
     ) {
-      const queue = googleWindow.googlefc.callbackQueue
-      const showRevocationMessage = googleWindow.googlefc.showRevocationMessage
-      queue.push(showRevocationMessage)
-      return
+      callbackQueue.push(showRevocationMessage)
+    } else {
+      console.warn("Google Funding Choices non è ancora disponibile.")
     }
-
-    showToast(t("toast.consentUnavailable"), "info")
   }
 
   return (
-    <footer className="relative z-10 border-t border-white/10 bg-black/30 px-5 py-6 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
-        <p className="text-[11px] tracking-[0.08em] text-zinc-600">
-          Made by Xeryon
-        </p>
+    <footer className="border-t border-white/10 bg-black px-6 py-8 text-sm text-white/60">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p>Linguo</p>
+          <p className="mt-1 text-xs text-white/40">
+            Impara le lingue senza perdere completamente fiducia nell’umanità.
+          </p>
+        </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-zinc-400">
-          <Link href="/privacy" className="transition-colors hover:text-white">
-            {t("footer.privacy")}
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href={`/${locale}/privacy`} className="hover:text-white">
+            Privacy Policy
+          </Link>
+
+          <Link href={`/${locale}/cookie`} className="hover:text-white">
+            Cookie Policy
           </Link>
 
           <button
             type="button"
             onClick={handleConsentClick}
-            className={`transition-colors hover:text-white ${
-              consentReady ? "text-zinc-400" : "text-zinc-500"
-            }`}
+            disabled={!consentAvailable}
+            className="hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {t("footer.consent")}
+            Gestisci consenso
           </button>
         </div>
       </div>
