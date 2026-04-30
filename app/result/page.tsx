@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+
 import { motion } from "motion/react"
 import { toPng } from "html-to-image"
+
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
@@ -11,6 +13,7 @@ import { ResultShareCard } from "@/components/result-share-card"
 import { useToast } from "@/components/toast-provider"
 import { useLocale } from "@/components/locale-provider"
 import { useAuth } from "@/components/auth-provider"
+
 import { supabase } from "@/lib/supabase"
 import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
 import { GameMode, getResultMessage } from "@/lib/game-mode"
@@ -21,6 +24,7 @@ import { saveGameSession } from "@/lib/game-sessions"
 export default function ResultPage() {
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement | null>(null)
+
   const { showToast } = useToast()
   const { t, locale } = useLocale()
   const { user } = useAuth()
@@ -31,8 +35,11 @@ export default function ResultPage() {
   const [mode, setMode] = useState<GameMode>("normal")
   const [answers, setAnswers] = useState<PlayerAnswer[]>([])
   const [questionIds, setQuestionIds] = useState<number[]>([])
+
   const [creatingChallenge, setCreatingChallenge] = useState(false)
   const [existingChallengeCode, setExistingChallengeCode] = useState<string | null>(null)
+  const [challengeLink, setChallengeLink] = useState<string | null>(null)
+
   const [downloadingCard, setDownloadingCard] = useState(false)
   const [sessionSaved, setSessionSaved] = useState(false)
 
@@ -62,6 +69,10 @@ export default function ResultPage() {
     setAnswers(JSON.parse(savedAnswers))
     setQuestionIds(JSON.parse(savedQuestionIds))
     setExistingChallengeCode(savedChallengeCode)
+
+    if (savedChallengeCode) {
+      setChallengeLink(`${window.location.origin}/challenge/${savedChallengeCode}`)
+    }
 
     if (
       savedMode === "normal" ||
@@ -154,8 +165,24 @@ export default function ResultPage() {
     }
   }
 
+  const copyChallengeLink = async (link: string, shareText?: string) => {
+    try {
+      await navigator.clipboard.writeText(
+        shareText ? `${shareText} ${link}` : link
+      )
+
+      showToast(t("toast.copyChallenge"), "success")
+    } catch (error) {
+      console.error("Errore nella copia del link:", error)
+      showToast(t("toast.copyError"), "error")
+    }
+  }
+
   const openShare = async (shareCode: string) => {
     const challengeUrl = `${window.location.origin}/challenge/${shareCode}`
+
+    setChallengeLink(challengeUrl)
+
     const shareText = getShareText({
       locale,
       nickname,
@@ -164,6 +191,8 @@ export default function ResultPage() {
       modeLabel: t(`mode.${mode}`),
     })
 
+    await copyChallengeLink(challengeUrl, shareText)
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -171,22 +200,15 @@ export default function ResultPage() {
           text: shareText,
           url: challengeUrl,
         })
-      } catch (err) {
-        console.error("Condivisione annullata o fallita", err)
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(`${shareText} ${challengeUrl}`)
-        showToast(t("toast.copyChallenge"), "success")
-      } catch (err) {
-        console.error("Errore nella copia", err)
-        showToast(t("toast.copyError"), "error")
+      } catch (error) {
+        console.error("Condivisione annullata o fallita:", error)
       }
     }
   }
 
   const handleShare = async () => {
     if (creatingChallenge || answers.length === 0 || questionIds.length === 0) {
+      showToast(t("toast.challengeCreateError"), "error")
       return
     }
 
@@ -197,47 +219,56 @@ export default function ResultPage() {
 
     setCreatingChallenge(true)
 
-    let shareCode = generateShareCode()
+    try {
+      let shareCode = generateShareCode()
 
-    const { data: existing } = await supabase
-      .from("challenges")
-      .select("id")
-      .eq("share_code", shareCode)
-      .maybeSingle()
+      const { data: existing, error: existingError } = await supabase
+        .from("challenges")
+        .select("id")
+        .eq("share_code", shareCode)
+        .maybeSingle()
 
-    if (existing) {
-      shareCode = generateShareCode(10)
-    }
+      if (existingError) {
+        console.error("Errore controllo codice challenge:", existingError)
+      }
 
-    const { error } = await supabase.from("challenges").insert({
-      share_code: shareCode,
-      creator_name: nickname,
-      creator_score: score,
-      total_questions: total,
-      question_ids: questionIds,
-      creator_answers: answers,
-      mode,
-    })
+      if (existing) {
+        shareCode = generateShareCode(10)
+      }
 
-    setCreatingChallenge(false)
+      const { error } = await supabase.from("challenges").insert({
+        share_code: shareCode,
+        creator_name: nickname,
+        creator_score: score,
+        total_questions: total,
+        question_ids: questionIds,
+        creator_answers: answers,
+        mode,
+      })
 
-    if (error) {
-      console.error("Errore creazione challenge:", error)
+      if (error) {
+        console.error("Errore creazione challenge:", error)
+        showToast(t("toast.challengeCreateError"), "error")
+        return
+      }
+
+      trackEvent("challenge_created", {
+        mode,
+        score,
+        total,
+        locale,
+      })
+
+      localStorage.setItem("linguo_last_challenge_code", shareCode)
+      setExistingChallengeCode(shareCode)
+
+      await openShare(shareCode)
+    } catch (error) {
+      console.error("Errore imprevisto creazione challenge:", error)
       showToast(t("toast.challengeCreateError"), "error")
-      return
+    } finally {
+      setCreatingChallenge(false)
     }
-
-    trackEvent("challenge_created", {
-      mode,
-      score,
-      total,
-      locale,
-    })
-
-    localStorage.setItem("linguo_last_challenge_code", shareCode)
-    setExistingChallengeCode(shareCode)
-
-    await openShare(shareCode)
   }
 
   const resultMessage = getResultMessage(mode, score, total, locale)
@@ -281,6 +312,7 @@ export default function ResultPage() {
 
                   <div className="space-y-1">
                     <p className="text-sm text-green-400">{t(`mode.${mode}`)}</p>
+
                     <motion.h1
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -331,6 +363,7 @@ export default function ResultPage() {
                       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                         {t("result.bestStreak")}
                       </p>
+
                       <p className="mt-2 text-2xl font-semibold text-green-400">
                         {stats.bestStreak}
                       </p>
@@ -340,6 +373,7 @@ export default function ResultPage() {
                       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                         {t("result.nonLatin")}
                       </p>
+
                       <p className="mt-2 text-2xl font-semibold text-green-400">
                         {stats.nonLatinCorrect}
                       </p>
@@ -356,6 +390,7 @@ export default function ResultPage() {
                         <p className="text-lg font-semibold text-white">
                           {getFamilyLabel(stats.bestFamily.key, locale)}
                         </p>
+
                         <p className="text-sm text-zinc-400">
                           {stats.bestFamily.correct}/{stats.bestFamily.total}
                         </p>
@@ -447,6 +482,33 @@ export default function ResultPage() {
                   </motion.div>
                 ))}
               </motion.div>
+
+              {challengeLink ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35 }}
+                  className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-left"
+                >
+                  <p className="text-sm font-medium text-green-300">
+                    {locale === "en" ? "Challenge link created:" : "Link sfida creato:"}
+                  </p>
+
+                  <input
+                    readOnly
+                    value={challengeLink}
+                    onFocus={(event) => event.currentTarget.select()}
+                    className="mt-3 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white outline-none transition focus:border-green-500"
+                  />
+
+                  <Button
+                    onClick={() => copyChallengeLink(challengeLink)}
+                    className="mt-3 h-11 w-full rounded-xl bg-green-500 text-sm font-medium text-black transition hover:bg-green-400"
+                  >
+                    {locale === "en" ? "Copy link" : "Copia link"}
+                  </Button>
+                </motion.div>
+              ) : null}
 
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
