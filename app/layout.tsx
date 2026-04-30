@@ -16,11 +16,13 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://linguo.online"),
   title: {
     default: "Linguo",
     template: "%s | Linguo",
   },
   description: "Indovina la lingua. Sfida i tuoi amici.",
+  referrer: "strict-origin-when-cross-origin",
 }
 
 export default function RootLayout({
