@@ -9,6 +9,8 @@ type AnalyticsEventName =
   | "compare_view"
   | "locale_changed"
   | "mode_selected"
+  | "daily_opened"
+  | "daily_completed"
 
 type AnalyticsPayload = Record<
   string,

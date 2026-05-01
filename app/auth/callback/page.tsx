@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+
 import { Card } from "@/components/card"
 import { supabase } from "@/lib/supabase"
 
@@ -10,9 +11,21 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let cancelled = false
 
-    const goHome = () => {
+    const getRedirectTarget = () => {
+      const saved = window.localStorage.getItem("linguo_after_login")
+
+      window.localStorage.removeItem("linguo_after_login")
+
+      if (saved && saved.startsWith("/")) {
+        return saved
+      }
+
+      return "/"
+    }
+
+    const goToTarget = () => {
       if (!cancelled) {
-        window.location.replace("/")
+        window.location.replace(getRedirectTarget())
       }
     }
 
@@ -23,6 +36,7 @@ export default function AuthCallbackPage() {
 
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
+
           if (error) {
             console.error("Errore exchange session:", error)
           }
@@ -32,12 +46,12 @@ export default function AuthCallbackPage() {
       } catch (error) {
         console.error("Errore callback auth:", error)
       } finally {
-        goHome()
+        goToTarget()
       }
     }
 
     const timeout = window.setTimeout(() => {
-      goHome()
+      goToTarget()
     }, 1800)
 
     void handleAuth()
@@ -49,15 +63,16 @@ export default function AuthCallbackPage() {
   }, [])
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
-        <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-          <div className="space-y-3">
-            <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-              accesso
-            </p>
-            <p className="text-base text-zinc-300">Sto completando il login...</p>
-          </div>
+    <main className="min-h-screen px-5 py-10">
+      <div className="mx-auto flex min-h-[80vh] max-w-md items-center justify-center">
+        <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+          <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+            accesso
+          </p>
+
+          <h1 className="mt-4 text-2xl font-semibold text-white">
+            Sto completando il login...
+          </h1>
         </Card>
       </div>
     </main>

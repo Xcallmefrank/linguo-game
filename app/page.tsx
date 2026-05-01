@@ -101,6 +101,18 @@ export default function HomePage() {
     router.push("/play")
   }
 
+  const handleOpenDaily = () => {
+    trackEvent("daily_opened", {
+      locale,
+      authenticated: Boolean(user),
+    })
+
+    localStorage.setItem("linguo_after_login", "/daily")
+    localStorage.setItem("linguo_after_profile", "/daily")
+
+    router.push("/daily")
+  }
+
   const handleOpenRanked = () => {
     setRankedResponsibilityAccepted(false)
     setShowRankedSheet(true)
@@ -302,55 +314,57 @@ export default function HomePage() {
                   </p>
 
                   <div className="grid gap-3">
-                    {(["normal", "hard", "similar"] as GameMode[]).map((mode) => {
-                      const active = selectedMode === mode
+                    {(["normal", "hard", "similar"] as GameMode[]).map(
+                      (mode) => {
+                        const active = selectedMode === mode
 
-                      return (
-                        <motion.button
-                          key={mode}
-                          type="button"
-                          onClick={() => {
-                            setSelectedMode(mode)
-                            trackEvent("mode_selected", {
-                              mode,
-                              locale,
-                            })
-                          }}
-                          whileHover={{ scale: 1.01 }}
-                          whileTap={{ scale: 0.995 }}
-                          className={`relative overflow-hidden rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
-                            ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
-                            : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
-                            }`}
-                        >
-                          <div className="relative z-10">
-                            <div className="space-y-1">
-                              <p
-                                className={`font-medium ${active ? "text-green-400" : "text-white"
-                                  }`}
-                              >
-                                {t(`mode.${mode}`)}
-                              </p>
-                              <p className="text-sm text-zinc-400">
-                                {t(`mode.${mode}.desc`)}
-                              </p>
-                            </div>
+                        return (
+                          <motion.button
+                            key={mode}
+                            type="button"
+                            onClick={() => {
+                              setSelectedMode(mode)
+                              trackEvent("mode_selected", {
+                                mode,
+                                locale,
+                              })
+                            }}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.995 }}
+                            className={`relative overflow-hidden rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
+                                ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
+                                : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
+                              }`}
+                          >
+                            <div className="relative z-10">
+                              <div className="space-y-1">
+                                <p
+                                  className={`font-medium ${active ? "text-green-400" : "text-white"
+                                    }`}
+                                >
+                                  {t(`mode.${mode}`)}
+                                </p>
+                                <p className="text-sm text-zinc-400">
+                                  {t(`mode.${mode}.desc`)}
+                                </p>
+                              </div>
 
-                            <div className="mt-3 h-7 overflow-hidden">
-                              {mode === "normal" ? (
-                                <SeamlessSoftWave active={active} />
-                              ) : null}
-                              {mode === "hard" ? (
-                                <SeamlessSharpWave active={active} />
-                              ) : null}
-                              {mode === "similar" ? (
-                                <SeamlessDoubleWave active={active} />
-                              ) : null}
+                              <div className="mt-3 h-7 overflow-hidden">
+                                {mode === "normal" ? (
+                                  <SeamlessSoftWave active={active} />
+                                ) : null}
+                                {mode === "hard" ? (
+                                  <SeamlessSharpWave active={active} />
+                                ) : null}
+                                {mode === "similar" ? (
+                                  <SeamlessDoubleWave active={active} />
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                        </motion.button>
-                      )
-                    })}
+                          </motion.button>
+                        )
+                      }
+                    )}
                   </div>
                 </div>
 
@@ -362,6 +376,101 @@ export default function HomePage() {
                   >
                     {t("home.start")}
                   </Button>
+                </div>
+
+                <div className="pt-4">
+                  <div className="mb-4 h-px w-full bg-gradient-to-r from-transparent via-white/12 to-transparent" />
+
+                  <motion.button
+                    type="button"
+                    onClick={handleOpenDaily}
+                    initial="rest"
+                    whileHover="hover"
+                    animate="rest"
+                    whileTap={{ scale: 0.985 }}
+                    className="group relative h-[76px] w-full overflow-hidden rounded-[24px] border border-white/10 bg-zinc-950 shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-300/35"
+                  >
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(16,45,31,0.96),rgba(8,18,16,0.96)_48%,rgba(8,12,22,0.98)_100%)]" />
+
+                    <motion.div
+                      variants={{
+                        rest: { opacity: 0.22, scale: 1 },
+                        hover: { opacity: 0.38, scale: 1.12 },
+                      }}
+                      transition={{ duration: 0.35, ease: "easeOut" }}
+                      className="pointer-events-none absolute -left-10 top-1/2 h-28 w-28 -translate-y-1/2 rounded-full bg-green-400/25 blur-2xl"
+                    />
+
+                    <motion.div
+                      variants={{
+                        rest: { opacity: 0.14, scale: 1 },
+                        hover: { opacity: 0.28, scale: 1.08 },
+                      }}
+                      transition={{ duration: 0.35, ease: "easeOut" }}
+                      className="pointer-events-none absolute -right-8 top-1/2 h-28 w-28 -translate-y-1/2 rounded-full bg-sky-300/20 blur-2xl"
+                    />
+
+                    <motion.div
+                      variants={{
+                        rest: { x: "-130%", opacity: 0 },
+                        hover: { x: "170%", opacity: 1 },
+                      }}
+                      transition={{ duration: 0.85, ease: "easeInOut" }}
+                      className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/12 to-transparent blur-sm"
+                    />
+
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-transparent to-black/30" />
+
+                    <div className="relative z-10 flex h-full items-center justify-between gap-4 px-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/35 shadow-inner backdrop-blur-md">
+                          <motion.div
+                            variants={{
+                              rest: { rotate: 0, scale: 1 },
+                              hover: { rotate: -6, scale: 1.06 },
+                            }}
+                            transition={{ duration: 0.28, ease: "easeOut" }}
+                            className="text-[22px]"
+                          >
+                            🏠
+                          </motion.div>
+                        </div>
+
+                        <div className="min-w-0 text-left">
+                          <p className="truncate text-base font-semibold text-white">
+                            Daily Word
+                          </p>
+                          <p className="mt-0.5 truncate text-sm text-zinc-400">
+                            {locale === "en" ? "Discover and learn!" : "Scopri e impara!"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="relative h-10 w-[76px] shrink-0 rounded-full border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md">
+                        <motion.div
+                          variants={{
+                            rest: { x: 0, rotate: 0, scale: 1 },
+                            hover: { x: 30, rotate: 90, scale: 1.06 },
+                          }}
+                          transition={{ duration: 0.38, ease: "easeInOut" }}
+                          className="absolute left-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-amber-300 text-[15px] shadow-[0_0_18px_rgba(253,224,71,0.36)]"
+                        >
+                          ☀️
+                        </motion.div>
+
+                        <motion.div
+                          variants={{
+                            rest: { x: 0, rotate: 0, scale: 1 },
+                            hover: { x: -30, rotate: -80, scale: 1.06 },
+                          }}
+                          transition={{ duration: 0.38, ease: "easeInOut" }}
+                          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-sky-200 text-[15px] shadow-[0_0_18px_rgba(125,211,252,0.3)]"
+                        >
+                          🌙
+                        </motion.div>
+                      </div>
+                    </div>
+                  </motion.button>
                 </div>
 
                 <div className="pt-4">
@@ -383,21 +492,29 @@ export default function HomePage() {
                     whileTap={{ scale: 0.995 }}
                     className="group relative h-[68px] w-full overflow-hidden rounded-[22px] border border-white/10 shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-red-400/40"
                   >
-                    {/* metà sinistra rossa */}
                     <div className="absolute inset-y-0 left-0 w-1/2 bg-[linear-gradient(135deg,rgba(127,29,29,0.98),rgba(220,38,38,0.9))]" />
 
-                    {/* bagliore rosso vivo */}
                     <motion.div
-                      animate={{ opacity: [0.2, 0.38, 0.2], scale: [1, 1.04, 1] }}
-                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      animate={{
+                        opacity: [0.2, 0.38, 0.2],
+                        scale: [1, 1.04, 1],
+                      }}
+                      transition={{
+                        duration: 2.2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
                       className="pointer-events-none absolute left-0 top-0 h-full w-[46%] bg-[radial-gradient(circle_at_30%_50%,rgba(255,120,120,0.35),transparent_60%)] blur-xl"
                     />
 
-                    {/* metà destra scacchiera premium */}
                     <div className="absolute inset-y-0 right-0 w-1/2 overflow-hidden bg-zinc-950">
                       <motion.div
                         animate={{ x: ["-8%", "8%", "-8%"] }}
-                        transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+                        transition={{
+                          duration: 5.2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
                         className="absolute inset-[-10%]"
                         style={{
                           backgroundImage:
@@ -410,7 +527,6 @@ export default function HomePage() {
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),transparent_30%,transparent_70%,rgba(255,255,255,0.04))]" />
                     </div>
 
-                    {/* rifiniture */}
                     <div className="absolute inset-0 bg-gradient-to-r from-white/6 via-transparent to-white/6" />
                     <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/12" />
 
@@ -419,10 +535,18 @@ export default function HomePage() {
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/35 shadow-inner backdrop-blur-md">
                           <motion.div
                             animate={{ rotate: [-4, 4, -4] }}
-                            transition={{ duration: 2.3, repeat: Infinity, ease: "easeInOut" }}
+                            transition={{
+                              duration: 2.3,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
                             className="text-white"
                           >
-                            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none">
+                            <svg
+                              viewBox="0 0 24 24"
+                              className="h-[18px] w-[18px]"
+                              fill="none"
+                            >
                               <path
                                 d="M5 3v18"
                                 stroke="currentColor"
@@ -461,7 +585,11 @@ export default function HomePage() {
                               "0 8px 20px rgba(0,0,0,0.18)",
                             ],
                           }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          }}
                           className="rounded-full border border-black/20 bg-white px-3 py-1 text-xs font-extrabold tracking-[0.18em] text-black"
                         >
                           TOP 25
@@ -565,7 +693,11 @@ export default function HomePage() {
 
 function SeamlessSoftWave({ active }: { active: boolean }) {
   return (
-    <svg viewBox="0 0 280 28" className="h-full w-full" preserveAspectRatio="none">
+    <svg
+      viewBox="0 0 280 28"
+      className="h-full w-full"
+      preserveAspectRatio="none"
+    >
       <defs>
         <path
           id="soft-wave-segment"
@@ -612,7 +744,11 @@ function SeamlessSoftWave({ active }: { active: boolean }) {
 
 function SeamlessSharpWave({ active }: { active: boolean }) {
   return (
-    <svg viewBox="0 0 280 32" className="h-full w-full" preserveAspectRatio="none">
+    <svg
+      viewBox="0 0 280 32"
+      className="h-full w-full"
+      preserveAspectRatio="none"
+    >
       <defs>
         <path
           id="hard-wave-segment"
@@ -626,7 +762,6 @@ function SeamlessSharpWave({ active }: { active: boolean }) {
       >
         {[0, 168, 336].map((offset) => (
           <g key={offset}>
-            {/* glow rosso esterno */}
             <use
               href="#hard-wave-segment"
               x={offset}
@@ -638,7 +773,6 @@ function SeamlessSharpWave({ active }: { active: boolean }) {
               style={{ opacity: active ? 0.16 : 0.06 }}
             />
 
-            {/* glow rosso intermedio */}
             <use
               href="#hard-wave-segment"
               x={offset}
@@ -650,7 +784,6 @@ function SeamlessSharpWave({ active }: { active: boolean }) {
               style={{ opacity: active ? 0.26 : 0.1 }}
             />
 
-            {/* linea principale rossa */}
             <use
               href="#hard-wave-segment"
               x={offset}
@@ -670,7 +803,11 @@ function SeamlessSharpWave({ active }: { active: boolean }) {
 
 function SeamlessDoubleWave({ active }: { active: boolean }) {
   return (
-    <svg viewBox="0 0 280 28" className="h-full w-full" preserveAspectRatio="none">
+    <svg
+      viewBox="0 0 280 28"
+      className="h-full w-full"
+      preserveAspectRatio="none"
+    >
       <defs>
         <path
           id="double-wave-top"
@@ -688,7 +825,6 @@ function SeamlessDoubleWave({ active }: { active: boolean }) {
       >
         {[0, 168, 336].map((offset) => (
           <g key={offset}>
-            {/* linea superiore blu */}
             <use
               href="#double-wave-top"
               x={offset}
@@ -700,7 +836,6 @@ function SeamlessDoubleWave({ active }: { active: boolean }) {
               style={{ opacity: active ? 0.95 : 0.42 }}
             />
 
-            {/* piccolo glow blu */}
             <use
               href="#double-wave-top"
               x={offset}
@@ -709,10 +844,9 @@ function SeamlessDoubleWave({ active }: { active: boolean }) {
               stroke="#3b82f6"
               strokeWidth="4.2"
               strokeLinecap="round"
-              style={{ opacity: active ? 0.10 : 0.03 }}
+              style={{ opacity: active ? 0.1 : 0.03 }}
             />
 
-            {/* linea inferiore celeste */}
             <use
               href="#double-wave-bottom"
               x={offset}
@@ -724,7 +858,6 @@ function SeamlessDoubleWave({ active }: { active: boolean }) {
               style={{ opacity: active ? 0.9 : 0.3 }}
             />
 
-            {/* piccolo glow celeste */}
             <use
               href="#double-wave-bottom"
               x={offset}
