@@ -396,9 +396,8 @@ function DailyPageContent() {
                     </p>
 
                     <p
-                      className={`mt-3 text-sm font-medium ${
-                        answer.correct ? "text-green-400" : "text-red-400"
-                      }`}
+                      className={`mt-3 text-sm font-medium ${answer.correct ? "text-green-400" : "text-red-400"
+                        }`}
                     >
                       {answer.correct
                         ? locale === "en"
@@ -479,12 +478,18 @@ function DailyPageContent() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    {locale === "en" ? "Word" : "Parola"}
+                    {locale === "en" ? "Mystery word" : "Parola misteriosa"}
                   </p>
 
                   <h2 className="mt-1 text-2xl font-semibold text-white">
-                    {daily.word.lemmaIt} / {daily.word.lemmaEn}
+                    {locale === "en" ? "Hidden until the end" : "Nascosta fino alla fine"}
                   </h2>
+
+                  <p className="mt-2 text-sm text-zinc-500">
+                    {locale === "en"
+                      ? "Answer first. Then Linguo reveals the word."
+                      : "Rispondi prima. Poi Linguo rivela la parola."}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-right">
@@ -520,15 +525,14 @@ function DailyPageContent() {
                         type="button"
                         onClick={() => handleSelectAnswer(option)}
                         disabled={answered}
-                        className={`rounded-2xl border px-4 py-4 text-left text-sm font-medium transition-all ${
-                          selected && isCorrect
+                        className={`rounded-2xl border px-4 py-4 text-left text-sm font-medium transition-all ${selected && isCorrect
                             ? "border-green-500 bg-green-500/15 text-green-300"
                             : selected && !isCorrect
                               ? "border-red-500 bg-red-500/15 text-red-300"
                               : answered && isCorrect
                                 ? "border-green-500/60 bg-green-500/10 text-green-300"
                                 : "border-zinc-800 bg-zinc-950/70 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-900"
-                        }`}
+                          }`}
                       >
                         {option}
                       </button>
@@ -539,11 +543,10 @@ function DailyPageContent() {
                 {selectedAnswer ? (
                   <div className="mt-5 rounded-2xl border border-white/10 bg-zinc-950/80 p-4">
                     <p
-                      className={`text-sm font-medium ${
-                        selectedAnswer === question.correctAnswer
+                      className={`text-sm font-medium ${selectedAnswer === question.correctAnswer
                           ? "text-green-400"
                           : "text-red-400"
-                      }`}
+                        }`}
                     >
                       {selectedAnswer === question.correctAnswer
                         ? locale === "en"

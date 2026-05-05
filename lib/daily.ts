@@ -6,27 +6,27 @@ import {
   type DailyScript,
   type DailyTranslation,
   type DailyWord,
-} from "@/lib/daily-words"
+} from "@/lib/daily-words";
 
 export type DailyQuestion = {
-  id: string
-  prompt: string
-  options: string[]
-  correctAnswer: string
-  explanation: string
-}
+  id: string;
+  prompt: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+};
 
 export type DailyCuriosity = {
-  it: string
-  en: string
-}
+  it: string;
+  en: string;
+};
 
 export type DailyGame = {
-  key: string
-  word: DailyWord
-  questions: DailyQuestion[]
-  curiosity: DailyCuriosity
-}
+  key: string;
+  word: DailyWord;
+  questions: DailyQuestion[];
+  curiosity: DailyCuriosity;
+};
 
 const languageLabels: Record<AppLocale, Record<DailyLanguageCode, string>> = {
   it: {
@@ -47,7 +47,7 @@ const languageLabels: Record<AppLocale, Record<DailyLanguageCode, string>> = {
     ru: "Russian",
     ja: "Japanese",
   },
-}
+};
 
 const familyLabels: Record<AppLocale, Record<DailyFamily, string>> = {
   it: {
@@ -62,7 +62,7 @@ const familyLabels: Record<AppLocale, Record<DailyFamily, string>> = {
     slavic: "Slavic",
     japanese: "Japanese",
   },
-}
+};
 
 const scriptLabels: Record<AppLocale, Record<DailyScript, string>> = {
   it: {
@@ -75,7 +75,7 @@ const scriptLabels: Record<AppLocale, Record<DailyScript, string>> = {
     cyrillic: "Cyrillic alphabet",
     japanese: "Japanese characters",
   },
-}
+};
 
 const languageCuriosities: DailyCuriosity[] = [
   {
@@ -110,115 +110,114 @@ const languageCuriosities: DailyCuriosity[] = [
     it: "Alcune lingue usano lo stesso alfabeto, ma organizzano suoni e parole in modi molto diversi. L’alfabeto è solo la porta d’ingresso, non tutta la casa.",
     en: "Some languages use the same alphabet but organize sounds and words very differently. The alphabet is only the entrance, not the whole house.",
   },
-]
+];
 
 function pad(value: number) {
-  return value.toString().padStart(2, "0")
+  return value.toString().padStart(2, "0");
 }
 
 export function getLocalDateKey(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
-  )}`
+    date.getDate(),
+  )}`;
 }
 
 function isDateKey(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function hashString(input: string) {
-  let hash = 0
+  let hash = 0;
 
   for (let i = 0; i < input.length; i += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(i)
-    hash |= 0
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
   }
 
-  return Math.abs(hash)
+  return Math.abs(hash);
 }
 
 function rotate<T>(items: T[], seed: string) {
-  if (items.length === 0) return items
+  if (items.length === 0) return items;
 
-  const offset = hashString(seed) % items.length
+  const offset = hashString(seed) % items.length;
 
-  return [...items.slice(offset), ...items.slice(0, offset)]
+  return [...items.slice(offset), ...items.slice(0, offset)];
 }
 
 function optionSet(correct: string, wrong: string[], seed: string) {
   const values = Array.from(
-    new Set([correct, ...wrong.filter((item) => item !== correct)])
-  )
+    new Set([correct, ...wrong.filter((item) => item !== correct)]),
+  );
 
-  return rotate(values.slice(0, 4), seed)
+  return rotate(values.slice(0, 4), seed);
 }
 
 function uniqueByValue(translations: DailyTranslation[]) {
-  const counts = new Map<string, number>()
+  const counts = new Map<string, number>();
 
   for (const item of translations) {
-    const key = item.value.toLowerCase()
-    counts.set(key, (counts.get(key) ?? 0) + 1)
+    const key = item.value.toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
   return translations.filter(
-    (item) => counts.get(item.value.toLowerCase()) === 1
-  )
+    (item) => counts.get(item.value.toLowerCase()) === 1,
+  );
 }
 
 function getWordForKey(key: string) {
-  const exact = MAY_2026_DAILY_WORDS.find((word) => word.dateKey === key)
+  const exact = MAY_2026_DAILY_WORDS.find((word) => word.dateKey === key);
 
-  if (exact) return exact
+  if (exact) return exact;
 
-  const index = hashString(key) % MAY_2026_DAILY_WORDS.length
+  const index = hashString(key) % MAY_2026_DAILY_WORDS.length;
 
-  return MAY_2026_DAILY_WORDS[index]
+  return MAY_2026_DAILY_WORDS[index];
 }
 
 function getNeighborWords(word: DailyWord) {
   const currentIndex = MAY_2026_DAILY_WORDS.findIndex(
-    (item) => item.id === word.id
-  )
+    (item) => item.id === word.id,
+  );
 
-  const words: DailyWord[] = []
+  const words: DailyWord[] = [];
 
   for (let i = 1; words.length < 8; i += 1) {
     const next =
-      MAY_2026_DAILY_WORDS[
-        (currentIndex + i) % MAY_2026_DAILY_WORDS.length
-      ]
+      MAY_2026_DAILY_WORDS[(currentIndex + i) % MAY_2026_DAILY_WORDS.length];
 
     if (next && next.id !== word.id) {
-      words.push(next)
+      words.push(next);
     }
   }
 
-  return words
+  return words;
 }
 
 function translationFor(word: DailyWord, language: DailyLanguageCode) {
   const translation = word.translations.find(
-    (item) => item.language === language
-  )
+    (item) => item.language === language,
+  );
 
   if (!translation) {
-    throw new Error(`Missing translation ${language} for ${word.lemmaIt}`)
+    throw new Error(`Missing translation ${language} for ${word.lemmaIt}`);
   }
 
-  return translation
+  return translation;
 }
 
 function buildTranslationQuestion(
   word: DailyWord,
   key: string,
-  locale: AppLocale
+  locale: AppLocale,
 ): DailyQuestion {
-  const languages: DailyLanguageCode[] = ["en", "es", "fr", "de", "ru", "ja"]
-  const language = languages[hashString(`${key}-translation`) % languages.length]
-  const correct = translationFor(word, language)
-  const neighbors = getNeighborWords(word)
-  const wrong = neighbors.map((item) => translationFor(item, language).value)
+  const languages: DailyLanguageCode[] = ["en", "es", "fr", "de", "ru", "ja"];
+  const language =
+    languages[hashString(`${key}-translation`) % languages.length];
+  const correct = translationFor(word, language);
+  const neighbors = getNeighborWords(word);
+  const wrong = neighbors.map((item) => translationFor(item, language).value);
 
   return {
     id: `${key}-translation`,
@@ -232,16 +231,16 @@ function buildTranslationQuestion(
       locale === "en"
         ? `Correct answer: “${correct.value}”.`
         : `Risposta corretta: “${correct.value}”.`,
-  }
+  };
 }
 
 function buildLanguageQuestion(
   word: DailyWord,
   key: string,
-  locale: AppLocale
+  locale: AppLocale,
 ): DailyQuestion {
-  const unique = uniqueByValue(word.translations)
-  const correct = unique[hashString(`${key}-language`) % unique.length]
+  const unique = uniqueByValue(word.translations);
+  const correct = unique[hashString(`${key}-language`) % unique.length];
 
   return {
     id: `${key}-language`,
@@ -254,23 +253,23 @@ function buildLanguageQuestion(
       word.translations
         .filter((item) => item.language !== correct.language)
         .map((item) => languageLabels[locale][item.language]),
-      `${key}-language-options`
+      `${key}-language-options`,
     ),
     correctAnswer: languageLabels[locale][correct.language],
     explanation:
       locale === "en"
         ? `“${correct.value}” is ${languageLabels.en[correct.language]}.`
         : `“${correct.value}” è ${languageLabels.it[correct.language]}.`,
-  }
+  };
 }
 
 function buildFamilyQuestion(
   word: DailyWord,
   key: string,
-  locale: AppLocale
+  locale: AppLocale,
 ): DailyQuestion {
   const translation =
-    word.translations[hashString(`${key}-family`) % word.translations.length]
+    word.translations[hashString(`${key}-family`) % word.translations.length];
 
   return {
     id: `${key}-family`,
@@ -285,25 +284,27 @@ function buildFamilyQuestion(
         familyLabels[locale].slavic,
         familyLabels[locale].japanese,
       ],
-      `${key}-family-options`
+      `${key}-family-options`,
     ),
     correctAnswer: familyLabels[locale][translation.family],
     explanation:
       locale === "en"
         ? `${languageLabels.en[translation.language]} belongs to the ${familyLabels.en[translation.family]} family.`
         : `Il ${languageLabels.it[translation.language]} appartiene alla famiglia ${familyLabels.it[translation.family]}.`,
-  }
+  };
 }
 
 function buildScriptQuestion(
   word: DailyWord,
   key: string,
-  locale: AppLocale
+  locale: AppLocale,
 ): DailyQuestion {
-  const candidates = word.translations.filter((item) => item.script !== "latin")
+  const candidates = word.translations.filter(
+    (item) => item.script !== "latin",
+  );
   const translation =
     candidates[hashString(`${key}-script`) % candidates.length] ??
-    word.translations[0]
+    word.translations[0];
 
   return {
     id: `${key}-script`,
@@ -317,27 +318,40 @@ function buildScriptQuestion(
         scriptLabels[locale].cyrillic,
         scriptLabels[locale].japanese,
       ],
-      `${key}-script-options`
+      `${key}-script-options`,
     ),
     correctAnswer: scriptLabels[locale][translation.script],
     explanation:
       locale === "en"
         ? `“${translation.value}” uses ${scriptLabels.en[translation.script]}.`
         : `“${translation.value}” usa ${scriptLabels.it[translation.script]}.`,
-  }
+  };
 }
 
 function buildMeaningQuestion(
   word: DailyWord,
   key: string,
-  locale: AppLocale
+  locale: AppLocale,
 ): DailyQuestion {
+  const hardCandidates = word.translations.filter(
+    (item) => item.language !== "it" && item.language !== "en",
+  );
+
   const translation =
-    word.translations[hashString(`${key}-meaning`) % word.translations.length]
-  const neighbors = getNeighborWords(word)
-  const wrong = neighbors.map((item) =>
-    locale === "en" ? item.lemmaEn : item.lemmaIt
-  )
+    hardCandidates[hashString(`${key}-meaning`) % hardCandidates.length];
+
+  const sameCategoryWords = MAY_2026_DAILY_WORDS.filter(
+    (item) => item.category === word.category && item.id !== word.id,
+  );
+
+  const fallbackWords = getNeighborWords(word);
+
+  const wrongSource =
+    sameCategoryWords.length >= 3 ? sameCategoryWords : fallbackWords;
+
+  const wrong = wrongSource.map((item) =>
+    locale === "en" ? item.lemmaEn : item.lemmaIt,
+  );
 
   return {
     id: `${key}-meaning`,
@@ -348,42 +362,44 @@ function buildMeaningQuestion(
     options: optionSet(
       locale === "en" ? word.lemmaEn : word.lemmaIt,
       wrong,
-      `${key}-meaning-options`
+      `${key}-meaning-options`,
     ),
     correctAnswer: locale === "en" ? word.lemmaEn : word.lemmaIt,
     explanation:
       locale === "en"
-        ? `It means “${word.lemmaEn}”.`
-        : `Significa “${word.lemmaIt}”.`,
-  }
+        ? `It means “${word.lemmaEn}”. The word was shown in ${languageLabels.en[translation.language]}.`
+        : `Significa “${word.lemmaIt}”. La parola era mostrata in ${languageLabels.it[translation.language]}.`,
+  };
 }
 
 export function getDailyGame(
   locale: AppLocale,
-  dateOrKey: Date | string = new Date()
+  dateOrKey: Date | string = new Date(),
 ): DailyGame {
   const key =
     typeof dateOrKey === "string" && isDateKey(dateOrKey)
       ? dateOrKey
-      : getLocalDateKey(dateOrKey instanceof Date ? dateOrKey : new Date())
+      : getLocalDateKey(dateOrKey instanceof Date ? dateOrKey : new Date());
 
-  const word = getWordForKey(key)
+  const word = getWordForKey(key);
 
   const questionPool = [
-    buildTranslationQuestion(word, key, locale),
     buildLanguageQuestion(word, key, locale),
     buildFamilyQuestion(word, key, locale),
-    buildScriptQuestion(word, key, locale),
     buildMeaningQuestion(word, key, locale),
-  ]
+  ];
 
-  const question = questionPool[hashString(`${key}-single-question`) % questionPool.length]
-  const curiosity = languageCuriosities[hashString(`${key}-curiosity`) % languageCuriosities.length]
+  const question =
+    questionPool[hashString(`${key}-single-question`) % questionPool.length];
+  const curiosity =
+    languageCuriosities[
+      hashString(`${key}-curiosity`) % languageCuriosities.length
+    ];
 
   return {
     key,
     word,
     questions: [question],
     curiosity,
-  }
+  };
 }
