@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider"
 import { useLocale } from "@/components/locale-provider"
 import { useToast } from "@/components/toast-provider"
 import { signInWithGoogle, signOut } from "@/lib/auth"
+import { trackEvent } from "@/lib/analytics"
 
 type GoogleFcWindow = Window & {
   googlefc?: {
@@ -102,6 +103,12 @@ export function AppSidebar() {
 
   const handleLogin = async () => {
     try {
+      trackEvent("auth_click", {
+        source: "sidebar",
+        action: "google_login",
+        current_path: pathname || "/",
+      })
+
       window.localStorage.setItem("linguo_after_login", pathname || "/")
       window.localStorage.setItem("linguo_after_profile", pathname || "/")
 
@@ -113,6 +120,12 @@ export function AppSidebar() {
 
   const handleLogout = async () => {
     try {
+      trackEvent("auth_click", {
+        source: "sidebar",
+        action: "logout",
+        current_path: pathname || "/",
+      })
+
       await signOut()
       router.push("/")
     } catch (error) {
@@ -121,6 +134,11 @@ export function AppSidebar() {
   }
 
   const handleConsentClick = () => {
+    trackEvent("consent_click", {
+      source: "sidebar",
+      available: consentReady,
+    })
+
     const googleWindow = window as GoogleFcWindow
 
     const callbackQueue = googleWindow.googlefc?.callbackQueue
@@ -244,7 +262,17 @@ function SidebarContent({
 
       <div className="relative space-y-5">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-3">
+          <Link
+            href="/"
+            onClick={() =>
+              trackEvent("nav_click", {
+                source: "sidebar",
+                label: "Linguo",
+                target: "/",
+              })
+            }
+            className="flex items-center gap-3"
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-lg font-semibold text-green-300">
               L
             </div>
@@ -282,6 +310,13 @@ function SidebarContent({
             <div className="space-y-2">
               <Link
                 href="/profile"
+                onClick={() =>
+                  trackEvent("nav_click", {
+                    source: "sidebar",
+                    label: isEnglish ? "Profile" : "Profilo",
+                    target: "/profile",
+                  })
+                }
                 className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
                   pathname === "/profile"
                     ? "border-green-500/30 bg-green-500/10 text-green-300"
@@ -354,6 +389,12 @@ function SidebarContent({
 
             <a
               href="mailto:contact@noyrex.com"
+              onClick={() =>
+                trackEvent("contact_click", {
+                  source: "sidebar",
+                  target: "contact@noyrex.com",
+                })
+              }
               className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-400 transition hover:border-green-500/25 hover:text-green-300"
             >
               <span>✉️</span>
@@ -402,6 +443,13 @@ function SidebarNavLink({
   return (
     <Link
       href={link.href}
+      onClick={() =>
+        trackEvent("nav_click", {
+          source: "sidebar",
+          label: link.label,
+          target: link.href,
+        })
+      }
       className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
         active
           ? "border-green-500/30 bg-green-500/10 text-green-300"

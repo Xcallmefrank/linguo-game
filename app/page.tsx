@@ -15,7 +15,6 @@ import { getMyProfile } from "@/lib/profile"
 import { GameMode } from "@/lib/game-mode"
 import { trackEvent } from "@/lib/analytics"
 import Link from "next/link"
-import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
@@ -92,6 +91,14 @@ export default function HomePage() {
 
     if (effectiveName.length < 2) return
 
+    trackEvent("cta_click", {
+      source: "home",
+      label: "quick_play_start",
+      target: "/play",
+      mode: selectedMode,
+      authenticated: Boolean(user),
+    })
+
     trackEvent("game_start", {
       mode: selectedMode,
       locale,
@@ -104,6 +111,13 @@ export default function HomePage() {
   }
 
   const handleOpenDaily = () => {
+    trackEvent("cta_click", {
+      source: "home",
+      label: "daily_word",
+      target: "/daily",
+      authenticated: Boolean(user),
+    })
+
     trackEvent("daily_opened", {
       locale,
       authenticated: Boolean(user),
@@ -116,6 +130,19 @@ export default function HomePage() {
   }
 
   const handleOpenRanked = () => {
+    trackEvent("cta_click", {
+      source: "home",
+      label: "ranked",
+      target: "/ranked",
+      authenticated: Boolean(user),
+    })
+
+    trackEvent("ranked_opened", {
+      source: "home",
+      locale,
+      authenticated: Boolean(user),
+    })
+
     setRankedResponsibilityAccepted(false)
     setShowRankedSheet(true)
   }
@@ -133,6 +160,11 @@ export default function HomePage() {
 
   const handleGoogleLogin = async () => {
     try {
+      trackEvent("auth_click", {
+        source: "home",
+        action: "google_login",
+      })
+
       await signInWithGoogle()
     } catch (error) {
       console.error("Errore login Google:", error)
@@ -141,6 +173,11 @@ export default function HomePage() {
 
   const handleLogout = async () => {
     try {
+      trackEvent("auth_click", {
+        source: "home",
+        action: "logout",
+      })
+
       await signOut()
       setProfileNickname(null)
       router.push("/")

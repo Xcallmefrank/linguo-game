@@ -14,6 +14,7 @@ import { useToast } from "@/components/toast-provider"
 import { signInWithGoogle } from "@/lib/auth"
 import { getMyProfile } from "@/lib/profile"
 import { getDailyGame, getLocalDateKey } from "@/lib/daily"
+import { trackEvent } from "@/lib/analytics"
 import {
   calculateDailyStreak,
   getMyDailyAttempt,
@@ -82,6 +83,15 @@ function DailyHubContent() {
 
   const isToday = daily.key === todayKey
   const hasCompletedDaily = Boolean(attempt)
+
+  const streak = calculateDailyStreak(
+    attempt ? mergeAttempt(recentAttempts, attempt) : recentAttempts,
+    todayKey
+  )
+
+  const playHref = invitedBy
+    ? `/daily/play?day=${daily.key}&from=${encodeURIComponent(invitedBy)}`
+    : `/daily/play?day=${daily.key}`
 
   useEffect(() => {
     let cancelled = false
@@ -177,22 +187,40 @@ function DailyHubContent() {
     }
   }, [])
 
-  const streak = calculateDailyStreak(
-    attempt ? mergeAttempt(recentAttempts, attempt) : recentAttempts,
-    todayKey
-  )
+  useEffect(() => {
+    if (gateState !== "ready") return
 
-  const playHref = invitedBy
-    ? `/daily/play?day=${daily.key}&from=${encodeURIComponent(invitedBy)}`
-    : `/daily/play?day=${daily.key}`
+    trackEvent("daily_hub_view", {
+      daily_key: daily.key,
+      completed: hasCompletedDaily,
+      streak,
+      invited: Boolean(invitedBy),
+    })
+  }, [gateState, daily.key, hasCompletedDaily, streak, invitedBy])
 
   const handlePlay = () => {
     if (hasCompletedDaily) return
+
+    trackEvent("cta_click", {
+      source: "daily_hub",
+      label: "play_daily",
+      target: playHref,
+      daily_key: daily.key,
+      completed: hasCompletedDaily,
+    })
+
     router.push(playHref)
   }
 
   const handleShareDaily = async () => {
     if (!attempt) return
+
+    trackEvent("daily_shared", {
+      source: "daily_hub",
+      daily_key: daily.key,
+      score: attempt.score,
+      total_questions: attempt.total_questions,
+    })
 
     const origin = window.location.origin
     const from = encodeURIComponent(profileNickname || "Linguo")
@@ -367,7 +395,9 @@ function DailyHubContent() {
               </div>
 
               <DailyTimeline
-                attempts={attempt ? mergeAttempt(recentAttempts, attempt) : recentAttempts}
+                attempts={
+                  attempt ? mergeAttempt(recentAttempts, attempt) : recentAttempts
+                }
                 centerKey={daily.key}
                 todayKey={todayKey}
                 locale={locale}
@@ -398,9 +428,11 @@ function DailyHubContent() {
               {!hasCompletedDaily ? (
                 <Button
                   onClick={handlePlay}
-                  className="h-13 w-full rounded-2xl bg-green-500 py-4 text-base font-semibold text-black transition-all duration-200 hover:scale-[1.01] hover:bg-green-400"
+                  className="h-12 w-full rounded-2xl bg-green-500 py-4 text-base font-semibold text-black transition-all duration-200 hover:scale-[1.01] hover:bg-green-400"
                 >
-                  {locale === "en" ? "Play today’s Daily" : "Gioca la Daily di oggi"}
+                  {locale === "en"
+                    ? "Play today’s Daily"
+                    : "Gioca la Daily di oggi"}
                 </Button>
               ) : (
                 <div className="space-y-3">

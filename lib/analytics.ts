@@ -14,6 +14,12 @@ type AnalyticsEventName =
   | "daily_play_start"
   | "daily_completed"
   | "daily_shared"
+  | "cta_click"
+  | "nav_click"
+  | "auth_click"
+  | "consent_click"
+  | "contact_click"
+  | "ranked_opened"
 
 type AnalyticsPayload = Record<
   string,

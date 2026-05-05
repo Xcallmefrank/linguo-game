@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 
 import { useLocale } from "@/components/locale-provider"
 import { useToast } from "@/components/toast-provider"
+import { trackEvent } from "@/lib/analytics"
 
 type GoogleFcWindow = Window & {
   googlefc?: {
@@ -42,6 +43,11 @@ export function SiteFooter() {
   }, [])
 
   const handleConsentClick = () => {
+    trackEvent("consent_click", {
+      source: "footer",
+      available: consentReady,
+    })
+
     const googleWindow = window as GoogleFcWindow
 
     const callbackQueue = googleWindow.googlefc?.callbackQueue
@@ -110,6 +116,13 @@ export function SiteFooter() {
             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
               <Link
                 href="/privacy"
+                onClick={() =>
+                  trackEvent("nav_click", {
+                    source: "footer",
+                    label: "Privacy",
+                    target: "/privacy",
+                  })
+                }
                 className="rounded-full border border-white/10 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-green-500/30 hover:text-green-300"
               >
                 Privacy
@@ -129,6 +142,12 @@ export function SiteFooter() {
 
               <a
                 href="mailto:contact@noyrex.com"
+                onClick={() =>
+                  trackEvent("contact_click", {
+                    source: "footer",
+                    target: "contact@noyrex.com",
+                  })
+                }
                 className="rounded-full border border-white/10 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-green-500/30 hover:text-green-300"
               >
                 contact@noyrex.com
@@ -142,7 +161,9 @@ export function SiteFooter() {
         <div className="mt-5 flex flex-col items-center justify-between gap-3 text-center text-[11px] text-zinc-700 md:flex-row md:text-left">
           <p>
             © {new Date().getFullYear()} Linguo.{" "}
-            {locale === "en" ? "All rights reserved." : "Tutti i diritti riservati."}
+            {locale === "en"
+              ? "All rights reserved."
+              : "Tutti i diritti riservati."}
           </p>
 
           <p>
@@ -177,6 +198,13 @@ function FooterGroup({
           <Link
             key={item.href}
             href={item.href}
+            onClick={() =>
+              trackEvent("nav_click", {
+                source: "footer",
+                label: item.label,
+                target: item.href,
+              })
+            }
             className="rounded-full border border-white/10 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-green-500/30 hover:text-green-300"
           >
             {item.label}
