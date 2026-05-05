@@ -15,6 +15,7 @@ import { getMyProfile } from "@/lib/profile"
 import { GameMode } from "@/lib/game-mode"
 import { trackEvent } from "@/lib/analytics"
 import Link from "next/link"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
