@@ -2,55 +2,62 @@
 
 import { useEffect } from "react"
 
-declare global {
-  interface Window {
-    adsbygoogle: unknown[]
-  }
-}
-
 type AdSenseBannerProps = {
   slot: string
   className?: string
+  format?: "auto" | "fluid" | "rectangle" | "horizontal" | "vertical"
+  responsive?: boolean
 }
+
+type AdSenseWindow = Window & {
+  adsbygoogle?: unknown[]
+}
+
+const ADS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ADS === "true"
+
+const RAW_ADSENSE_CLIENT =
+  process.env.NEXT_PUBLIC_ADSENSE_CLIENT ?? "ca-pub-9077490381225909"
+
+const ADSENSE_CLIENT = RAW_ADSENSE_CLIENT.startsWith("ca-")
+  ? RAW_ADSENSE_CLIENT
+  : `ca-${RAW_ADSENSE_CLIENT}`
 
 export function AdSenseBanner({
   slot,
   className = "",
+  format = "auto",
+  responsive = true,
 }: AdSenseBannerProps) {
-  const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT?.replace("ca-pub-", "")
-
   useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        ;(window.adsbygoogle = window.adsbygoogle || []).push({})
-      }
-    } catch (error) {
-      console.error("Errore AdSense:", error)
-    }
-  }, [])
+    if (!ADS_ENABLED) return
 
-  if (!client || !slot) {
-    return (
-      <div
-        className={`flex min-h-24 w-full items-center justify-center rounded-3xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-6 text-sm text-zinc-500 ${className}`}
-      >
-        Spazio pubblicitario
-      </div>
-    )
+    try {
+      const adsWindow = window as AdSenseWindow
+      adsWindow.adsbygoogle = adsWindow.adsbygoogle || []
+      adsWindow.adsbygoogle.push({})
+    } catch (error) {
+      console.error("Errore caricamento AdSense:", error)
+    }
+  }, [slot])
+
+  if (!ADS_ENABLED) {
+    return null
   }
 
   return (
-    <div
-      className={`overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/70 ${className}`}
-    >
+    <div className={className}>
       <ins
-        className="adsbygoogle"
-        style={{ display: "block" }}
-        data-ad-client={`ca-pub-${client}`}
+        className="adsbygoogle block"
+        style={{
+          display: "block",
+        }}
+        data-ad-client={ADSENSE_CLIENT}
         data-ad-slot={slot}
-        data-ad-format="auto"
-        data-full-width-responsive="true"
+        data-ad-format={format}
+        data-full-width-responsive={responsive ? "true" : "false"}
       />
     </div>
   )
 }
+
+export default AdSenseBanner
