@@ -10,7 +10,10 @@ type AnalyticsEventName =
   | "locale_changed"
   | "mode_selected"
   | "daily_opened"
+  | "daily_hub_view"
+  | "daily_play_start"
   | "daily_completed"
+  | "daily_shared"
 
 type AnalyticsPayload = Record<
   string,
