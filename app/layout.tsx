@@ -9,6 +9,7 @@ import { LocaleProvider } from "@/components/locale-provider"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/components/auth-provider"
+import { AppSidebar } from "@/components/app-sidebar"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -51,13 +52,15 @@ export default function RootLayout({
               <div className="relative min-h-screen overflow-x-hidden text-white">
                 <BackgroundLayer />
 
-                <div className="pointer-events-none absolute right-4 top-4 z-20">
+                <AppSidebar />
+
+                <div className="pointer-events-none absolute right-4 top-4 z-[70]">
                   <div className="pointer-events-auto">
                     <LanguageSwitcher />
                   </div>
                 </div>
 
-                <div className="relative z-10 flex min-h-screen flex-col">
+                <div className="relative z-10 flex min-h-screen flex-col md:pl-[270px]">
                   <div className="flex-1">{children}</div>
                   <SiteFooter />
                 </div>

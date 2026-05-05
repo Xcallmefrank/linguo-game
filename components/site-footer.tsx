@@ -2,110 +2,189 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { useToast } from "@/components/toast-provider"
+
 import { useLocale } from "@/components/locale-provider"
+import { useToast } from "@/components/toast-provider"
 
 type GoogleFcWindow = Window & {
   googlefc?: {
-    callbackQueue?: {
-      push: (item: unknown) => number
-    }
+    callbackQueue?: Array<() => void>
     showRevocationMessage?: () => void
   }
 }
 
-function isConsentApiReady(googleWindow: GoogleFcWindow) {
-  return Boolean(
-    googleWindow.googlefc?.callbackQueue &&
-      typeof googleWindow.googlefc?.showRevocationMessage === "function"
-  )
-}
-
 export function SiteFooter() {
-  const [consentReady, setConsentReady] = useState(false)
+  const { locale } = useLocale()
   const { showToast } = useToast()
-  const { t } = useLocale()
+
+  const [consentReady, setConsentReady] = useState(false)
 
   useEffect(() => {
-    if (typeof window === "undefined") return
+    const checkConsentAvailability = () => {
+      const googleWindow = window as GoogleFcWindow
 
-    const googleWindow = window as GoogleFcWindow
+      const callbackQueue = googleWindow.googlefc?.callbackQueue
+      const showRevocationMessage = googleWindow.googlefc?.showRevocationMessage
 
-    googleWindow.googlefc = googleWindow.googlefc || {}
-    googleWindow.googlefc.callbackQueue =
-      googleWindow.googlefc.callbackQueue || {
-        push: () => 0,
-      }
-
-    if (isConsentApiReady(googleWindow)) {
-      setConsentReady(true)
-      return
+      setConsentReady(
+        typeof callbackQueue?.push === "function" &&
+          typeof showRevocationMessage === "function"
+      )
     }
 
-    const queue = googleWindow.googlefc.callbackQueue
+    checkConsentAvailability()
 
-    queue.push({
-      CONSENT_API_READY: () => {
-        setConsentReady(true)
-      },
-    })
-
-    const interval = window.setInterval(() => {
-      if (isConsentApiReady(googleWindow)) {
-        setConsentReady(true)
-        window.clearInterval(interval)
-      }
-    }, 800)
-
-    const timeout = window.setTimeout(() => {
-      window.clearInterval(interval)
-    }, 10000)
+    const interval = window.setInterval(checkConsentAvailability, 1000)
 
     return () => {
       window.clearInterval(interval)
-      window.clearTimeout(timeout)
     }
   }, [])
 
   const handleConsentClick = () => {
     const googleWindow = window as GoogleFcWindow
 
+    const callbackQueue = googleWindow.googlefc?.callbackQueue
+    const showRevocationMessage = googleWindow.googlefc?.showRevocationMessage
+
     if (
-      googleWindow.googlefc?.callbackQueue &&
-      typeof googleWindow.googlefc.showRevocationMessage === "function"
+      typeof callbackQueue?.push === "function" &&
+      typeof showRevocationMessage === "function"
     ) {
-      const queue = googleWindow.googlefc.callbackQueue
-      const showRevocationMessage = googleWindow.googlefc.showRevocationMessage
-      queue.push(showRevocationMessage)
+      callbackQueue.push(showRevocationMessage)
       return
     }
 
-    showToast(t("toast.consentUnavailable"), "info")
+    showToast(
+      locale === "en"
+        ? "Consent settings are not available yet."
+        : "Le impostazioni del consenso non sono ancora disponibili.",
+      "error"
+    )
   }
 
   return (
-    <footer className="relative z-10 border-t border-white/10 bg-black/30 px-5 py-6 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
-        <p className="text-[11px] tracking-[0.08em] text-zinc-600">
-          Made by Xeryon
-        </p>
+    <footer className="w-full border-t border-white/10 bg-black/30 px-5 py-8 backdrop-blur-xl">
+      <div className="mx-auto max-w-5xl">
+        <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr_1fr] md:items-start">
+          <div className="space-y-3 text-center md:text-left">
+            <p className="text-sm font-semibold tracking-tight text-white">
+              Linguo
+            </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-zinc-400">
-          <Link href="/privacy" className="transition-colors hover:text-white">
-            {t("footer.privacy")}
-          </Link>
+            <p className="max-w-sm text-xs leading-5 text-zinc-500 md:max-w-none">
+              {locale === "en"
+                ? "A language game built around quick runs, daily challenges and ranked progression."
+                : "Un gioco linguistico costruito intorno a partite veloci, sfide quotidiane e progressione ranked."}
+            </p>
 
-          <button
-            type="button"
-            onClick={handleConsentClick}
-            className={`transition-colors hover:text-white ${
-              consentReady ? "text-zinc-400" : "text-zinc-500"
-            }`}
-          >
-            {t("footer.consent")}
-          </button>
+            <p className="text-xs text-zinc-600">
+              Made by{" "}
+              <span className="font-medium text-zinc-400">Xeryon</span>
+            </p>
+          </div>
+
+          <FooterGroup
+            title={locale === "en" ? "Game modes" : "Modalità"}
+            items={[
+              {
+                href: "/quick-play",
+                label: locale === "en" ? "Quick Play" : "Partita veloce",
+              },
+              {
+                href: "/daily-word",
+                label: "Daily Word",
+              },
+              {
+                href: "/ranked-mode",
+                label: "Ranked",
+              },
+            ]}
+          />
+
+          <div className="space-y-3 text-center md:text-left">
+            <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">
+              {locale === "en" ? "Information" : "Informazioni"}
+            </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+              <Link
+                href="/privacy"
+                className="rounded-full border border-white/10 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-green-500/30 hover:text-green-300"
+              >
+                Privacy
+              </Link>
+
+              <button
+                type="button"
+                onClick={handleConsentClick}
+                className={`rounded-full border px-3 py-2 text-xs transition-colors ${
+                  consentReady
+                    ? "border-white/10 bg-zinc-950/60 text-zinc-500 hover:border-green-500/30 hover:text-green-300"
+                    : "border-white/5 bg-zinc-950/40 text-zinc-700"
+                }`}
+              >
+                {locale === "en" ? "Manage consent" : "Gestisci consenso"}
+              </button>
+
+              <a
+                href="mailto:contact@noyrex.com"
+                className="rounded-full border border-white/10 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-green-500/30 hover:text-green-300"
+              >
+                contact@noyrex.com
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+        <div className="mt-5 flex flex-col items-center justify-between gap-3 text-center text-[11px] text-zinc-700 md:flex-row md:text-left">
+          <p>
+            © {new Date().getFullYear()} Linguo.{" "}
+            {locale === "en" ? "All rights reserved." : "Tutti i diritti riservati."}
+          </p>
+
+          <p>
+            {locale === "en"
+              ? "Built for language learning, daily practice and friendly challenges."
+              : "Creato per apprendimento linguistico, pratica quotidiana e sfide tra amici."}
+          </p>
         </div>
       </div>
     </footer>
   )
 }
+
+function FooterGroup({
+  title,
+  items,
+}: {
+  title: string
+  items: {
+    href: string
+    label: string
+  }[]
+}) {
+  return (
+    <div className="space-y-3 text-center md:text-left">
+      <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">
+        {title}
+      </p>
+
+      <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="rounded-full border border-white/10 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-500 transition-colors hover:border-green-500/30 hover:text-green-300"
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default SiteFooter

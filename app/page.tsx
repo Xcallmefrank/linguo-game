@@ -14,6 +14,7 @@ import { signInWithGoogle, signOut } from "@/lib/auth"
 import { getMyProfile } from "@/lib/profile"
 import { GameMode } from "@/lib/game-mode"
 import { trackEvent } from "@/lib/analytics"
+import Link from "next/link"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
@@ -332,8 +333,8 @@ export default function HomePage() {
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.995 }}
                             className={`relative overflow-hidden rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
-                                ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
-                                : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
+                              ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
+                              : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
                               }`}
                           >
                             <div className="relative z-10">
@@ -471,6 +472,16 @@ export default function HomePage() {
                       </div>
                     </div>
                   </motion.button>
+                  <div className="mt-3 text-center">
+                    <Link
+                      href="/daily-word"
+                      className="text-xs font-medium text-zinc-500 transition-colors hover:text-green-300"
+                    >
+                      {locale === "en"
+                        ? "Learn how Daily Word works"
+                        : "Scopri come funziona Daily Word"}
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="pt-4">
