@@ -25,6 +25,7 @@ type SidebarLink = {
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+
   const { user, loading } = useAuth()
   const { locale } = useLocale()
   const { showToast } = useToast()
@@ -81,7 +82,7 @@ export function AppSidebar() {
   const directLinks: SidebarLink[] = [
     {
       href: "/daily",
-      label: isEnglish ? "Daily Hub" : "Daily Hub",
+      label: "Daily Hub",
       icon: "🧭",
     },
     {
@@ -103,6 +104,7 @@ export function AppSidebar() {
     try {
       window.localStorage.setItem("linguo_after_login", pathname || "/")
       window.localStorage.setItem("linguo_after_profile", pathname || "/")
+
       await signInWithGoogle()
     } catch (error) {
       console.error("Errore login Google:", error)
@@ -145,7 +147,10 @@ export function AppSidebar() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/55 text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:border-green-500/30 hover:bg-zinc-950 md:hidden"
+        className="fixed left-4 z-[70] flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/55 text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:border-green-500/30 hover:bg-zinc-950 md:hidden"
+        style={{
+          top: "max(1rem, env(safe-area-inset-top))",
+        }}
         aria-label="Open navigation"
       >
         <span className="text-lg">☰</span>
@@ -176,7 +181,12 @@ export function AppSidebar() {
             onClick={() => setOpen(false)}
           />
 
-          <div className="absolute left-4 right-4 top-4">
+          <div
+            className="absolute left-4 right-4"
+            style={{
+              top: "max(1rem, env(safe-area-inset-top))",
+            }}
+          >
             <SidebarContent
               pathname={pathname}
               loading={loading}
@@ -229,13 +239,13 @@ function SidebarContent({
   mobile?: boolean
 }) {
   return (
-    <nav className="relative overflow-hidden rounded-[30px] border border-white/10 bg-black/55 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
+    <nav className="relative max-h-[calc(100svh-2rem)] overflow-y-auto rounded-[30px] border border-white/10 bg-black/55 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(34,197,94,0.13),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]" />
 
       <div className="relative space-y-5">
         <div className="flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-lg">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-lg font-semibold text-green-300">
               L
             </div>
 
@@ -347,7 +357,7 @@ function SidebarContent({
               className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-400 transition hover:border-green-500/25 hover:text-green-300"
             >
               <span>✉️</span>
-              <span className="truncate">Contact</span>
+              <span className="truncate">contact@noyrex.com</span>
             </a>
           </div>
         </div>
