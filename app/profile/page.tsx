@@ -258,22 +258,58 @@ export default function ProfilePage() {
                     <div className="h-64 w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={gamesByModeChart}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                          <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} />
-                          <YAxis stroke="#a1a1aa" fontSize={12} allowDecimals={false} />
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="rgba(34,197,94,0.16)"
+                            vertical={false}
+                          />
+                          <XAxis
+                            dataKey="name"
+                            stroke="#a1a1aa"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
+                          />
+
+                          <YAxis
+                            stroke="#a1a1aa"
+                            fontSize={12}
+                            allowDecimals={false}
+                            tickLine={false}
+                            axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
+                          />
                           <Tooltip
-                            formatter={(value) => [
-                              `${value}`,
-                              locale === "en" ? "Games" : "Partite",
-                            ]}
+                            cursor={{ fill: "rgba(34,197,94,0.06)" }}
                             contentStyle={{
-                              backgroundColor: "#09090b",
-                              border: "1px solid #27272a",
-                              borderRadius: "16px",
-                              color: "#fff",
+                              background: "rgba(9, 9, 11, 0.92)",
+                              border: "1px solid rgba(34,197,94,0.22)",
+                              borderRadius: "14px",
+                              color: "#f4f4f5",
+                            }}
+                            labelStyle={{
+                              color: "#86efac",
                             }}
                           />
-                          <Bar dataKey="value" radius={[8, 8, 0, 0]} />
+                          <defs>
+                            <linearGradient id="gamesByModeGreen" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#86efac" stopOpacity={0.95} />
+                              <stop offset="45%" stopColor="#22c55e" stopOpacity={0.85} />
+                              <stop offset="100%" stopColor="#052e16" stopOpacity={0.75} />
+                            </linearGradient>
+                          </defs>
+
+                          <Bar
+                            dataKey="value"
+                            fill="url(#gamesByModeGreen)"
+                            stroke="#22c55e"
+                            strokeWidth={1}
+                            radius={[10, 10, 4, 4]}
+                            barSize={42}
+                            background={{
+                              fill: "rgba(24, 24, 27, 0.42)",
+
+                            }}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -297,22 +333,58 @@ export default function ProfilePage() {
                     <div className="h-64 w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={accuracyByModeChart}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                          <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} />
-                          <YAxis stroke="#a1a1aa" fontSize={12} />
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="rgba(34,197,94,0.16)"
+                            vertical={false}
+                          />
+                          <XAxis
+                            dataKey="name"
+                            stroke="#a1a1aa"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
+                          />
+
+                          <YAxis
+                            stroke="#a1a1aa"
+                            fontSize={12}
+                            allowDecimals={false}
+                            tickLine={false}
+                            axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
+                          />
                           <Tooltip
-                            formatter={(value) => [
-                              `${value}%`,
-                              locale === "en" ? "Average accuracy" : "Accuracy media",
-                            ]}
+                            cursor={{ fill: "rgba(34,197,94,0.06)" }}
                             contentStyle={{
-                              backgroundColor: "#09090b",
-                              border: "1px solid #27272a",
-                              borderRadius: "16px",
-                              color: "#fff",
+                              background: "rgba(9, 9, 11, 0.92)",
+                              border: "1px solid rgba(34,197,94,0.22)",
+                              borderRadius: "14px",
+                              color: "#f4f4f5",
+                            }}
+                            labelStyle={{
+                              color: "#86efac",
                             }}
                           />
-                          <Bar dataKey="value" radius={[8, 8, 0, 0]} />
+                          <defs>
+                            <linearGradient id="accuracyByModeGreen" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#bbf7d0" stopOpacity={0.98} />
+                              <stop offset="45%" stopColor="#22c55e" stopOpacity={0.9} />
+                              <stop offset="100%" stopColor="#064e3b" stopOpacity={0.78} />
+                            </linearGradient>
+                          </defs>
+
+                          <Bar
+                            dataKey="value"
+                            fill="url(#accuracyByModeGreen)"
+                            stroke="#4ade80"
+                            strokeWidth={1}
+                            radius={[10, 10, 4, 4]}
+                            barSize={42}
+                            background={{
+                              fill: "rgba(24, 24, 27, 0.42)",
+
+                            }}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
