@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-
 import { motion } from "motion/react"
 import { toPng } from "html-to-image"
 
@@ -15,11 +14,12 @@ import { useLocale } from "@/components/locale-provider"
 import { useAuth } from "@/components/auth-provider"
 
 import { supabase } from "@/lib/supabase"
-import { generateShareCode, PlayerAnswer } from "@/lib/challenge"
-import { GameMode, getResultMessage } from "@/lib/game-mode"
+import { generateShareCode, type PlayerAnswer } from "@/lib/challenge"
+import { type GameMode, getResultMessage } from "@/lib/game-mode"
 import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 import { trackEvent } from "@/lib/analytics"
 import { saveGameSession } from "@/lib/game-sessions"
+import { grantGameJourneyXp } from "@/lib/journey"
 
 export default function ResultPage() {
   const router = useRouter()
@@ -34,14 +34,15 @@ export default function ResultPage() {
   const [total, setTotal] = useState(0)
   const [mode, setMode] = useState<GameMode>("normal")
   const [answers, setAnswers] = useState<PlayerAnswer[]>([])
-  const [questionIds, setQuestionIds] = useState<number[]>([])
-
+  const [questionIds, setQuestionIds] = useState<string[]>([])
   const [creatingChallenge, setCreatingChallenge] = useState(false)
-  const [existingChallengeCode, setExistingChallengeCode] = useState<string | null>(null)
+  const [existingChallengeCode, setExistingChallengeCode] = useState<
+    string | null
+  >(null)
   const [challengeLink, setChallengeLink] = useState<string | null>(null)
-
   const [downloadingCard, setDownloadingCard] = useState(false)
   const [sessionSaved, setSessionSaved] = useState(false)
+  const [journeyAwarded, setJourneyAwarded] = useState(false)
 
   useEffect(() => {
     const savedName = localStorage.getItem("linguo_nickname")
@@ -66,8 +67,8 @@ export default function ResultPage() {
     setNickname(savedName)
     setScore(Number(savedScore))
     setTotal(Number(savedTotal))
-    setAnswers(JSON.parse(savedAnswers))
-    setQuestionIds(JSON.parse(savedQuestionIds))
+    setAnswers(JSON.parse(savedAnswers) as PlayerAnswer[])
+    setQuestionIds(JSON.parse(savedQuestionIds) as string[])
     setExistingChallengeCode(savedChallengeCode)
 
     if (savedChallengeCode) {
@@ -113,13 +114,59 @@ export default function ResultPage() {
         })
 
         setSessionSaved(true)
+
+        if (!journeyAwarded) {
+          const journeyResult = await grantGameJourneyXp({
+            userId: user.id,
+            mode,
+            score,
+            totalQuestions: total,
+            bestStreak: stats.bestStreak,
+            questionIds,
+          })
+
+          setJourneyAwarded(true)
+
+          if (journeyResult.awarded) {
+            const badgeText =
+              journeyResult.unlockedBadges.length > 0
+                ? locale === "en"
+                  ? ` Badge unlocked: ${journeyResult.unlockedBadges
+                      .map((badge) => badge.title.en)
+                      .join(", ")}`
+                  : ` Badge sbloccato: ${journeyResult.unlockedBadges
+                      .map((badge) => badge.title.it)
+                      .join(", ")}`
+                : ""
+
+            showToast(
+              locale === "en"
+                ? `+${journeyResult.xpAwarded} XP earned.${badgeText}`
+                : `+${journeyResult.xpAwarded} XP guadagnati.${badgeText}`,
+              "success"
+            )
+          }
+        }
       } catch (error) {
         console.error("Errore salvataggio game session:", error)
       }
     }
 
     void saveSession()
-  }, [user, nickname, total, sessionSaved, mode, score, stats.bestStreak, answers])
+  }, [
+    user,
+    nickname,
+    total,
+    sessionSaved,
+    journeyAwarded,
+    mode,
+    score,
+    stats.bestStreak,
+    answers,
+    questionIds,
+    locale,
+    showToast,
+  ])
 
   const handleReplay = () => {
     localStorage.removeItem("linguo_last_challenge_code")
@@ -167,10 +214,7 @@ export default function ResultPage() {
 
   const copyChallengeLink = async (link: string, shareText?: string) => {
     try {
-      await navigator.clipboard.writeText(
-        shareText ? `${shareText} ${link}` : link
-      )
-
+      await navigator.clipboard.writeText(shareText ? `${shareText} ${link}` : link)
       showToast(t("toast.copyChallenge"), "success")
     } catch (error) {
       console.error("Errore nella copia del link:", error)
@@ -274,150 +318,57 @@ export default function ResultPage() {
   const resultMessage = getResultMessage(mode, score, total, locale)
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-10">
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full"
-        >
-          <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <div className="space-y-8">
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: {
-                    transition: {
-                      staggerChildren: 0.08,
-                      delayChildren: 0.05,
-                    },
-                  },
-                }}
-                className="space-y-5"
-              >
-                <motion.div
-                  variants={{
-                    hidden: { opacity: 0, y: 12, filter: "blur(8px)" },
-                    visible: { opacity: 1, y: 0, filter: "blur(0px)" },
-                  }}
-                  transition={{ duration: 0.35 }}
-                  className="space-y-3 text-center"
-                >
-                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                    {t("result.title")}
-                  </p>
+    <main className="min-h-screen px-5 py-10">
+      <div className="mx-auto max-w-5xl">
+        <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+          >
+            <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+              <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                {t("result.title")}
+              </p>
 
-                  <div className="space-y-1">
-                    <p className="text-sm text-green-400">{t(`mode.${mode}`)}</p>
+              <div className="mt-4 inline-flex rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-green-300">
+                {t(`mode.${mode}`)}
+              </div>
 
-                    <motion.h1
-                      initial={{ opacity: 0, scale: 0.96 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.35, delay: 0.08 }}
-                      className="text-3xl font-semibold tracking-tight"
-                    >
-                      {nickname} {score}/{total}
-                    </motion.h1>
-                  </div>
+              <h1 className="mt-6 text-4xl font-semibold tracking-tight text-white">
+                {nickname}
+              </h1>
 
-                  <motion.p
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35, delay: 0.14 }}
-                    className="text-zinc-400"
-                  >
-                    {resultMessage}
-                  </motion.p>
-                </motion.div>
+              <p className="mt-4 text-6xl font-semibold text-green-400">
+                {score}/{total}
+              </p>
 
-                <motion.div
-                  variants={{
-                    hidden: { opacity: 0, y: 18, filter: "blur(8px)" },
-                    visible: { opacity: 1, y: 0, filter: "blur(0px)" },
-                  }}
-                  transition={{ duration: 0.4 }}
-                  ref={cardRef}
-                >
-                  <ResultShareCard
-                    nickname={nickname}
-                    score={score}
-                    total={total}
-                    modeLabel={t(`mode.${mode}`)}
-                    message={resultMessage}
-                  />
-                </motion.div>
+              <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-zinc-400">
+                {resultMessage}
+              </p>
 
-                <motion.div
-                  variants={{
-                    hidden: { opacity: 0, y: 18, filter: "blur(8px)" },
-                    visible: { opacity: 1, y: 0, filter: "blur(0px)" },
-                  }}
-                  transition={{ duration: 0.35 }}
-                  className="grid gap-3"
-                >
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
-                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        {t("result.bestStreak")}
-                      </p>
+              <div className="mt-7 grid grid-cols-3 gap-3">
+                <ResultStat
+                  label={t("result.bestStreak")}
+                  value={stats.bestStreak}
+                />
 
-                      <p className="mt-2 text-2xl font-semibold text-green-400">
-                        {stats.bestStreak}
-                      </p>
-                    </div>
+                <ResultStat
+                  label={t("result.nonLatin")}
+                  value={stats.nonLatinCorrect}
+                />
 
-                    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
-                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        {t("result.nonLatin")}
-                      </p>
+                <ResultStat
+                  label={t("result.bestFamily")}
+                  value={
+                    stats.bestFamily
+                      ? `${getFamilyLabel(stats.bestFamily.key, locale)} ${stats.bestFamily.correct}/${stats.bestFamily.total}`
+                      : t("result.noData")
+                  }
+                />
+              </div>
 
-                      <p className="mt-2 text-2xl font-semibold text-green-400">
-                        {stats.nonLatinCorrect}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      {t("result.bestFamily")}
-                    </p>
-
-                    {stats.bestFamily ? (
-                      <div className="mt-2 space-y-1">
-                        <p className="text-lg font-semibold text-white">
-                          {getFamilyLabel(stats.bestFamily.key, locale)}
-                        </p>
-
-                        <p className="text-sm text-zinc-400">
-                          {stats.bestFamily.correct}/{stats.bestFamily.total}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-sm text-zinc-400">
-                        {t("result.noData")}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              </motion.div>
-
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: {
-                    transition: {
-                      staggerChildren: 0.07,
-                      delayChildren: 0.22,
-                    },
-                  },
-                }}
-                className="space-y-3"
-              >
+              <div className="mt-7 space-y-3">
                 {[
                   {
                     key: "download",
@@ -464,34 +415,23 @@ export default function ResultPage() {
                       "h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900",
                   },
                 ].map((item) => (
-                  <motion.div
+                  <Button
                     key={item.key}
-                    variants={{
-                      hidden: { opacity: 0, y: 10 },
-                      visible: { opacity: 1, y: 0 },
-                    }}
-                    transition={{ duration: 0.28 }}
+                    onClick={item.onClick}
+                    disabled={item.disabled}
+                    className={item.className}
                   >
-                    <Button
-                      onClick={item.onClick}
-                      disabled={item.disabled}
-                      className={item.className}
-                    >
-                      {item.label}
-                    </Button>
-                  </motion.div>
+                    {item.label}
+                  </Button>
                 ))}
-              </motion.div>
+              </div>
 
               {challengeLink ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35 }}
-                  className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-left"
-                >
-                  <p className="text-sm font-medium text-green-300">
-                    {locale === "en" ? "Challenge link created:" : "Link sfida creato:"}
+                <div className="mt-5 rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                    {locale === "en"
+                      ? "Challenge link created:"
+                      : "Link sfida creato:"}
                   </p>
 
                   <input
@@ -507,21 +447,63 @@ export default function ResultPage() {
                   >
                     {locale === "en" ? "Copy link" : "Copia link"}
                   </Button>
-                </motion.div>
+                </div>
               ) : null}
+            </Card>
+          </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: 0.42 }}
-              >
-                <AdSenseBanner slot="5943539542" className="min-h-36" />
-              </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.08 }}
+          >
+            <div ref={cardRef}>
+              <ResultShareCard
+                nickname={nickname}
+                score={score}
+                total={total}
+                modeLabel={t(`mode.${mode}`)}
+                resultMessage={resultMessage}
+                bestStreak={stats.bestStreak}
+                nonLatinCorrect={stats.nonLatinCorrect}
+                bestFamily={
+                  stats.bestFamily
+                    ? {
+                        label: getFamilyLabel(stats.bestFamily.key, locale),
+                        correct: stats.bestFamily.correct,
+                        total: stats.bestFamily.total,
+                      }
+                    : null
+                }
+                locale={locale}
+              />
             </div>
-          </Card>
-        </motion.div>
+
+            <div className="mt-6">
+              <AdSenseBanner slot="5675946231" className="min-h-24" />
+            </div>
+          </motion.div>
+        </div>
       </div>
     </main>
+  )
+}
+
+function ResultStat({
+  label,
+  value,
+}: {
+  label: string
+  value: string | number
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-3">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+        {label}
+      </p>
+
+      <p className="mt-2 truncate text-sm font-semibold text-white">{value}</p>
+    </div>
   )
 }
 

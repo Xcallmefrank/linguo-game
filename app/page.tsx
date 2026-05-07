@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
+
 import { Card } from "@/components/card"
 import { Input } from "@/components/input"
 import { Button } from "@/components/button"
@@ -14,7 +15,13 @@ import { signInWithGoogle, signOut } from "@/lib/auth"
 import { getMyProfile } from "@/lib/profile"
 import { GameMode } from "@/lib/game-mode"
 import { trackEvent } from "@/lib/analytics"
-import Link from "next/link"
+import {
+  BADGE_DEFINITIONS,
+  getLevelSnapshot,
+  getMyJourney,
+  type JourneyProgress,
+  type UserBadge,
+} from "@/lib/journey"
 
 export default function HomePage() {
   const [nickname, setNickname] = useState("")
@@ -24,6 +31,9 @@ export default function HomePage() {
     useState(false)
   const [profileNickname, setProfileNickname] = useState<string | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
+  const [journeyProgress, setJourneyProgress] =
+    useState<JourneyProgress | null>(null)
+  const [journeyBadges, setJourneyBadges] = useState<UserBadge[]>([])
 
   const router = useRouter()
   const { t, locale } = useLocale()
@@ -54,19 +64,31 @@ export default function HomePage() {
 
       if (!user) {
         setProfileNickname(null)
+        setJourneyProgress(null)
+        setJourneyBadges([])
         return
       }
 
       try {
         setProfileLoading(true)
-        const profile = await getMyProfile(user.id)
+
+        const [profile, journey] = await Promise.all([
+          getMyProfile(user.id),
+          getMyJourney(user.id),
+        ])
 
         if (cancelled) return
+
         setProfileNickname(profile?.nickname ?? null)
+        setJourneyProgress(journey.progress)
+        setJourneyBadges(journey.badges)
       } catch (error) {
         console.error("Errore caricamento profilo home:", error)
+
         if (!cancelled) {
           setProfileNickname(null)
+          setJourneyProgress(null)
+          setJourneyBadges([])
         }
       } finally {
         if (!cancelled) {
@@ -84,6 +106,18 @@ export default function HomePage() {
 
   const isRegisteredUser = Boolean(user && profileNickname)
   const identityLabel = profileNickname ?? user?.email ?? "Utente connesso"
+
+  const journeySnapshot = useMemo(() => {
+    return getLevelSnapshot(journeyProgress?.xp ?? 0, locale)
+  }, [journeyProgress?.xp, locale])
+
+  const latestBadge = useMemo(() => {
+    const badgeId = journeyBadges[0]?.badge_id
+
+    if (!badgeId) return null
+
+    return BADGE_DEFINITIONS.find((badge) => badge.id === badgeId) ?? null
+  }, [journeyBadges])
 
   const handleStart = () => {
     const fallbackName = nickname.trim()
@@ -154,6 +188,7 @@ export default function HomePage() {
 
   const handleProceedRanked = () => {
     if (!rankedResponsibilityAccepted) return
+
     setShowRankedSheet(false)
     router.push("/ranked")
   }
@@ -180,6 +215,8 @@ export default function HomePage() {
 
       await signOut()
       setProfileNickname(null)
+      setJourneyProgress(null)
+      setJourneyBadges([])
       router.push("/")
     } catch (error) {
       console.error("Errore logout:", error)
@@ -330,20 +367,81 @@ export default function HomePage() {
 
                     <Input
                       value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
+                      onChange={(event) => setNickname(event.target.value)}
                       placeholder={t("home.namePlaceholder")}
                       maxLength={12}
                       className="w-full rounded-2xl border-zinc-700 bg-zinc-950/80 px-5 py-4 text-center text-base text-white shadow-inner placeholder:text-zinc-500"
                     />
                   </>
                 ) : (
-                  <div className="rounded-2xl border border-green-500/15 bg-green-500/8 px-4 py-4 text-center">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      giocatore attivo
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-green-400">
-                      {profileNickname}
-                    </p>
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-green-500/15 bg-green-500/[0.08] px-4 py-4 text-center">
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        giocatore attivo
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-green-400">
+                        {profileNickname}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/journey")}
+                      className="group w-full rounded-[26px] border border-green-500/20 bg-zinc-950/70 p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-green-500/35 hover:bg-zinc-950"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-2xl transition-transform duration-300 group-hover:scale-105">
+                          {latestBadge?.icon ?? "🗺️"}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.18em] text-green-300">
+                                Journey
+                              </p>
+
+                              <p className="mt-1 text-base font-semibold text-white">
+                                Lv. {journeySnapshot.level} ·{" "}
+                                {journeySnapshot.title}
+                              </p>
+                            </div>
+
+                            <p className="text-xs font-semibold text-green-300">
+                              {journeySnapshot.xp} XP
+                            </p>
+                          </div>
+
+                          <div className="mt-3">
+                            <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-500">
+                              <span>
+                                {journeySnapshot.xpIntoLevel}/
+                                {journeySnapshot.nextLevelXp} XP
+                              </span>
+
+                              <span>-{journeySnapshot.xpToNextLevel} XP</span>
+                            </div>
+
+                            <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-300 transition-all duration-500"
+                                style={{
+                                  width: `${journeySnapshot.progressPercent}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <p className="mt-3 truncate text-xs text-zinc-500">
+                            {latestBadge
+                              ? `Badge: ${latestBadge.title[locale]}`
+                              : locale === "en"
+                                ? "Complete activities to unlock badges."
+                                : "Completa attività per sbloccare badge."}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
                   </div>
                 )}
 
@@ -370,16 +468,18 @@ export default function HomePage() {
                             }}
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.995 }}
-                            className={`relative overflow-hidden rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${active
-                              ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
-                              : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
-                              }`}
+                            className={`relative overflow-hidden rounded-2xl border px-4 py-4 text-left transition-all duration-200 ${
+                              active
+                                ? "border-green-500 bg-green-500/15 shadow-[0_0_0_1px_rgba(34,197,94,0.25)]"
+                                : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-600 hover:bg-zinc-900"
+                            }`}
                           >
                             <div className="relative z-10">
                               <div className="space-y-1">
                                 <p
-                                  className={`font-medium ${active ? "text-green-400" : "text-white"
-                                    }`}
+                                  className={`font-medium ${
+                                    active ? "text-green-400" : "text-white"
+                                  }`}
                                 >
                                   {t(`mode.${mode}`)}
                                 </p>
@@ -420,106 +520,62 @@ export default function HomePage() {
                 <div className="pt-4">
                   <div className="mb-4 h-px w-full bg-gradient-to-r from-transparent via-white/12 to-transparent" />
 
+                  <div className="mb-3 text-center">
+                    <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                      Daily Word
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      {locale === "en"
+                        ? "One word, one question, one streak."
+                        : "Una parola, una domanda, una serie."}
+                    </p>
+                  </div>
+
                   <motion.button
                     type="button"
                     onClick={handleOpenDaily}
-                    initial="rest"
-                    whileHover="hover"
-                    animate="rest"
-                    whileTap={{ scale: 0.985 }}
-                    className="group relative h-[76px] w-full overflow-hidden rounded-[24px] border border-white/10 bg-zinc-950 shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-300/35"
+                    whileHover={{ scale: 1.012 }}
+                    whileTap={{ scale: 0.995 }}
+                    className="group relative h-[64px] w-full overflow-hidden rounded-[22px] border border-green-500/20 bg-zinc-950/80 shadow-[0_14px_40px_rgba(0,0,0,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:border-green-400/40"
                   >
-                    <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(16,45,31,0.96),rgba(8,18,16,0.96)_48%,rgba(8,12,22,0.98)_100%)]" />
-
                     <motion.div
-                      variants={{
-                        rest: { opacity: 0.22, scale: 1 },
-                        hover: { opacity: 0.38, scale: 1.12 },
+                      animate={{
+                        opacity: [0.18, 0.32, 0.18],
+                        scale: [1, 1.05, 1],
                       }}
-                      transition={{ duration: 0.35, ease: "easeOut" }}
-                      className="pointer-events-none absolute -left-10 top-1/2 h-28 w-28 -translate-y-1/2 rounded-full bg-green-400/25 blur-2xl"
+                      transition={{
+                        duration: 2.4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                      className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_50%,rgba(34,197,94,0.38),transparent_55%)] blur-xl"
                     />
 
-                    <motion.div
-                      variants={{
-                        rest: { opacity: 0.14, scale: 1 },
-                        hover: { opacity: 0.28, scale: 1.08 },
-                      }}
-                      transition={{ duration: 0.35, ease: "easeOut" }}
-                      className="pointer-events-none absolute -right-8 top-1/2 h-28 w-28 -translate-y-1/2 rounded-full bg-sky-300/20 blur-2xl"
-                    />
+                    <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(34,197,94,0.18),rgba(250,204,21,0.08),transparent)]" />
 
-                    <motion.div
-                      variants={{
-                        rest: { x: "-130%", opacity: 0 },
-                        hover: { x: "170%", opacity: 1 },
-                      }}
-                      transition={{ duration: 0.85, ease: "easeInOut" }}
-                      className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/12 to-transparent blur-sm"
-                    />
-
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-transparent to-black/30" />
-
-                    <div className="relative z-10 flex h-full items-center justify-between gap-4 px-4">
+                    <div className="relative z-10 flex h-full items-center justify-between gap-3 px-4">
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/35 shadow-inner backdrop-blur-md">
-                          <motion.div
-                            variants={{
-                              rest: { rotate: 0, scale: 1 },
-                              hover: { rotate: -6, scale: 1.06 },
-                            }}
-                            transition={{ duration: 0.28, ease: "easeOut" }}
-                            className="text-[22px]"
-                          >
-                            🏠
-                          </motion.div>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-green-500/20 bg-black/35 text-xl shadow-inner backdrop-blur-md">
+                          🌗
                         </div>
 
                         <div className="min-w-0 text-left">
                           <p className="truncate text-base font-semibold text-white">
                             Daily Word
                           </p>
-                          <p className="mt-0.5 truncate text-sm text-zinc-400">
-                            {locale === "en" ? "Discover and learn!" : "Scopri e impara!"}
+                          <p className="mt-0.5 truncate text-sm text-white/75">
+                            {locale === "en"
+                              ? "Discover today’s word"
+                              : "Scopri la parola di oggi"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="relative h-10 w-[76px] shrink-0 rounded-full border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md">
-                        <motion.div
-                          variants={{
-                            rest: { x: 0, rotate: 0, scale: 1 },
-                            hover: { x: 30, rotate: 90, scale: 1.06 },
-                          }}
-                          transition={{ duration: 0.38, ease: "easeInOut" }}
-                          className="absolute left-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-amber-300 text-[15px] shadow-[0_0_18px_rgba(253,224,71,0.36)]"
-                        >
-                          ☀️
-                        </motion.div>
-
-                        <motion.div
-                          variants={{
-                            rest: { x: 0, rotate: 0, scale: 1 },
-                            hover: { x: -30, rotate: -80, scale: 1.06 },
-                          }}
-                          transition={{ duration: 0.38, ease: "easeInOut" }}
-                          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-sky-200 text-[15px] shadow-[0_0_18px_rgba(125,211,252,0.3)]"
-                        >
-                          🌙
-                        </motion.div>
+                      <div className="shrink-0 text-green-300 transition-transform duration-300 group-hover:translate-x-0.5">
+                        →
                       </div>
                     </div>
                   </motion.button>
-                  <div className="mt-3 text-center">
-                    <Link
-                      href="/daily-word"
-                      className="text-xs font-medium text-zinc-500 transition-colors hover:text-green-300"
-                    >
-                      {locale === "en"
-                        ? "Learn how Daily Word works"
-                        : "Scopri come funziona Daily Word"}
-                    </Link>
-                  </div>
                 </div>
 
                 <div className="pt-4">
@@ -703,8 +759,8 @@ export default function HomePage() {
                     <input
                       type="checkbox"
                       checked={rankedResponsibilityAccepted}
-                      onChange={(e) =>
-                        setRankedResponsibilityAccepted(e.target.checked)
+                      onChange={(event) =>
+                        setRankedResponsibilityAccepted(event.target.checked)
                       }
                       className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-green-500 focus:ring-green-500"
                     />
@@ -759,33 +815,18 @@ function SeamlessSoftWave({ active }: { active: boolean }) {
         transition={{ duration: 5.4, repeat: Infinity, ease: "linear" }}
         style={{ opacity: active ? 0.95 : 0.45 }}
       >
-        <use
-          href="#soft-wave-segment"
-          x="0"
-          y="0"
-          fill="none"
-          stroke={active ? "#22c55e" : "#71717a"}
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <use
-          href="#soft-wave-segment"
-          x="168"
-          y="0"
-          fill="none"
-          stroke={active ? "#22c55e" : "#71717a"}
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <use
-          href="#soft-wave-segment"
-          x="336"
-          y="0"
-          fill="none"
-          stroke={active ? "#22c55e" : "#71717a"}
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+        {[0, 168, 336].map((offset) => (
+          <use
+            key={offset}
+            href="#soft-wave-segment"
+            x={offset}
+            y="0"
+            fill="none"
+            stroke={active ? "#22c55e" : "#71717a"}
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        ))}
       </motion.g>
     </svg>
   )

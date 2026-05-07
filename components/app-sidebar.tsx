@@ -2,13 +2,21 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { useAuth } from "@/components/auth-provider"
 import { useLocale } from "@/components/locale-provider"
 import { useToast } from "@/components/toast-provider"
 import { signInWithGoogle, signOut } from "@/lib/auth"
 import { trackEvent } from "@/lib/analytics"
+import { getMyProfile } from "@/lib/profile"
+import {
+  BADGE_DEFINITIONS,
+  getLevelSnapshot,
+  getMyJourney,
+  type JourneyProgress,
+  type UserBadge,
+} from "@/lib/journey"
 
 type GoogleFcWindow = Window & {
   googlefc?: {
@@ -33,6 +41,10 @@ export function AppSidebar() {
 
   const [open, setOpen] = useState(false)
   const [consentReady, setConsentReady] = useState(false)
+  const [accountLoading, setAccountLoading] = useState(false)
+  const [profileNickname, setProfileNickname] = useState<string | null>(null)
+  const [progress, setProgress] = useState<JourneyProgress | null>(null)
+  const [badges, setBadges] = useState<UserBadge[]>([])
 
   const isEnglish = locale === "en"
 
@@ -45,7 +57,7 @@ export function AppSidebar() {
 
       setConsentReady(
         typeof callbackQueue?.push === "function" &&
-        typeof showRevocationMessage === "function"
+          typeof showRevocationMessage === "function"
       )
     }
 
@@ -61,6 +73,69 @@ export function AppSidebar() {
   useEffect(() => {
     setOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadAccountData = async () => {
+      if (loading) return
+
+      if (!user) {
+        setProfileNickname(null)
+        setProgress(null)
+        setBadges([])
+        return
+      }
+
+      try {
+        setAccountLoading(true)
+
+        const [profile, journey] = await Promise.all([
+          getMyProfile(user.id),
+          getMyJourney(user.id),
+        ])
+
+        if (cancelled) return
+
+        setProfileNickname(profile?.nickname ?? null)
+        setProgress(journey.progress)
+        setBadges(journey.badges)
+      } catch (error) {
+        console.error("Errore caricamento dati sidebar:", error)
+
+        if (!cancelled) {
+          setProfileNickname(null)
+          setProgress(null)
+          setBadges([])
+        }
+      } finally {
+        if (!cancelled) {
+          setAccountLoading(false)
+        }
+      }
+    }
+
+    void loadAccountData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [loading, user])
+
+  const levelSnapshot = useMemo(() => {
+    return getLevelSnapshot(progress?.xp ?? 0, locale)
+  }, [progress?.xp, locale])
+
+  const latestBadge = useMemo(() => {
+    const badgeId = badges[0]?.badge_id
+
+    if (!badgeId) return null
+
+    return BADGE_DEFINITIONS.find((badge) => badge.id === badgeId) ?? null
+  }, [badges])
+
+  const displayName =
+    profileNickname ?? user?.email?.split("@")[0] ?? (isEnglish ? "Player" : "Giocatore")
 
   const playLinks: SidebarLink[] = [
     {
@@ -183,7 +258,14 @@ export function AppSidebar() {
         <SidebarContent
           pathname={pathname}
           loading={loading}
+          accountLoading={accountLoading}
           userEmail={user?.email ?? null}
+          displayName={displayName}
+          level={levelSnapshot.level}
+          levelTitle={levelSnapshot.title}
+          xp={levelSnapshot.xp}
+          badgeIcon={latestBadge?.icon ?? null}
+          badgeTitle={latestBadge?.title[locale] ?? null}
           playLinks={playLinks}
           directLinks={directLinks}
           infoLinks={infoLinks}
@@ -213,7 +295,14 @@ export function AppSidebar() {
             <SidebarContent
               pathname={pathname}
               loading={loading}
+              accountLoading={accountLoading}
               userEmail={user?.email ?? null}
+              displayName={displayName}
+              level={levelSnapshot.level}
+              levelTitle={levelSnapshot.title}
+              xp={levelSnapshot.xp}
+              badgeIcon={latestBadge?.icon ?? null}
+              badgeTitle={latestBadge?.title[locale] ?? null}
               playLinks={playLinks}
               directLinks={directLinks}
               infoLinks={infoLinks}
@@ -235,7 +324,14 @@ export function AppSidebar() {
 function SidebarContent({
   pathname,
   loading,
+  accountLoading,
   userEmail,
+  displayName,
+  level,
+  levelTitle,
+  xp,
+  badgeIcon,
+  badgeTitle,
   playLinks,
   directLinks,
   infoLinks,
@@ -249,7 +345,14 @@ function SidebarContent({
 }: {
   pathname: string | null
   loading: boolean
+  accountLoading: boolean
   userEmail: string | null
+  displayName: string
+  level: number
+  levelTitle: string
+  xp: number
+  badgeIcon: string | null
+  badgeTitle: string | null
   playLinks: SidebarLink[]
   directLinks: SidebarLink[]
   infoLinks: SidebarLink[]
@@ -312,7 +415,7 @@ function SidebarContent({
               {isEnglish ? "Checking session..." : "Controllo sessione..."}
             </div>
           ) : userEmail ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Link
                 href="/profile"
                 onClick={() =>
@@ -322,15 +425,45 @@ function SidebarContent({
                     target: "/profile",
                   })
                 }
-                className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${pathname === "/profile"
-                    ? "border-green-500/30 bg-green-500/10 text-green-300"
-                    : "border-white/10 bg-black/30 text-zinc-300 hover:border-green-500/25 hover:text-green-300"
-                  }`}
+                className={`block rounded-3xl border p-3 transition ${
+                  pathname === "/profile"
+                    ? "border-green-500/30 bg-green-500/10"
+                    : "border-white/10 bg-black/30 hover:border-green-500/25"
+                }`}
               >
-                <span>👤</span>
-                <span className="min-w-0 truncate">
-                  {isEnglish ? "Profile" : "Profilo"}
-                </span>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-xl">
+                    {badgeIcon ?? "👤"}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-white">
+                      {displayName}
+                    </p>
+
+                    <p className="mt-1 text-xs text-green-300">
+                      Lv. {level} · {levelTitle}
+                    </p>
+
+                    <p className="mt-1 truncate text-[11px] text-zinc-500">
+                      {badgeTitle
+                        ? `${isEnglish ? "Badge" : "Badge"}: ${badgeTitle}`
+                        : isEnglish
+                          ? "No badge unlocked yet"
+                          : "Nessun badge sbloccato"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950/70 px-3 py-2">
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-zinc-600">
+                    XP
+                  </span>
+
+                  <span className="text-xs font-semibold text-green-300">
+                    {accountLoading ? "..." : xp}
+                  </span>
+                </div>
               </Link>
 
               <button
@@ -379,10 +512,11 @@ function SidebarContent({
             <button
               type="button"
               onClick={onConsentClick}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm transition ${consentReady
+              className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                consentReady
                   ? "border-white/10 bg-black/30 text-zinc-400 hover:border-green-500/25 hover:text-green-300"
                   : "border-white/5 bg-black/20 text-zinc-700"
-                }`}
+              }`}
             >
               <span>⚙️</span>
               <span>
@@ -453,10 +587,11 @@ function SidebarNavLink({
           target: link.href,
         })
       }
-      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${active
+      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
+        active
           ? "border-green-500/30 bg-green-500/10 text-green-300"
           : "border-white/10 bg-black/30 text-zinc-400 hover:border-green-500/25 hover:text-green-300"
-        }`}
+      }`}
     >
       <span>{link.icon}</span>
       <span className="truncate">{link.label}</span>

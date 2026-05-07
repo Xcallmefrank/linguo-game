@@ -49,6 +49,8 @@ export type LevelSnapshot = {
   progressPercent: number
 }
 
+type JourneyGameMode = "normal" | "hard" | "similar"
+
 const BASE_LEVEL_XP = 120
 const LEVEL_GROWTH = 1.1
 const MAX_LEVEL = 100
@@ -76,6 +78,30 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     description: {
       it: "Hai completato una Daily Word perfetta.",
       en: "You completed a perfect Daily Word.",
+    },
+  },
+  {
+    id: "first_game",
+    icon: "⚡",
+    title: {
+      it: "Prima partita",
+      en: "First Run",
+    },
+    description: {
+      it: "Hai completato la tua prima partita veloce.",
+      en: "You completed your first quick run.",
+    },
+  },
+  {
+    id: "perfect_game",
+    icon: "💎",
+    title: {
+      it: "Run perfetta",
+      en: "Perfect Run",
+    },
+    description: {
+      it: "Hai completato una partita senza errori.",
+      en: "You completed a run without mistakes.",
     },
   },
   {
@@ -174,23 +200,42 @@ export function getLevelFromXp(xp: number) {
 }
 
 export function getJourneyTitle(level: number, locale: "it" | "en") {
-  if (level >= 50) return locale === "en" ? "Master of Languages" : "Maestro delle lingue"
-  if (level >= 30) return locale === "en" ? "Archivist" : "Archivista"
-  if (level >= 20) return locale === "en" ? "Polyglot" : "Poliglotta"
-  if (level >= 10) return locale === "en" ? "Scholar" : "Studioso"
-  if (level >= 5) return locale === "en" ? "Explorer" : "Esploratore"
+  if (level >= 50) {
+    return locale === "en" ? "Master of Languages" : "Maestro delle lingue"
+  }
+
+  if (level >= 30) {
+    return locale === "en" ? "Archivist" : "Archivista"
+  }
+
+  if (level >= 20) {
+    return locale === "en" ? "Polyglot" : "Poliglotta"
+  }
+
+  if (level >= 10) {
+    return locale === "en" ? "Scholar" : "Studioso"
+  }
+
+  if (level >= 5) {
+    return locale === "en" ? "Explorer" : "Esploratore"
+  }
 
   return locale === "en" ? "Novice" : "Novizio"
 }
 
-export function getLevelSnapshot(xp: number, locale: "it" | "en"): LevelSnapshot {
+export function getLevelSnapshot(
+  xp: number,
+  locale: "it" | "en"
+): LevelSnapshot {
   const level = getLevelFromXp(xp)
   const currentLevelXp = getTotalXpForLevel(level)
   const nextLevelXp = getXpRequiredForNextLevel(level)
   const xpIntoLevel = Math.max(0, xp - currentLevelXp)
   const xpToNextLevel = Math.max(0, nextLevelXp - xpIntoLevel)
   const progressPercent =
-    nextLevelXp > 0 ? Math.min(100, Math.round((xpIntoLevel / nextLevelXp) * 100)) : 100
+    nextLevelXp > 0
+      ? Math.min(100, Math.round((xpIntoLevel / nextLevelXp) * 100))
+      : 100
 
   return {
     level,
@@ -208,6 +253,41 @@ export function getDailyJourneyXp(score: number, totalQuestions: number) {
   const perfect = score === totalQuestions
 
   return perfect ? 60 : 40
+}
+
+export function getGameJourneyXp(input: {
+  score: number
+  totalQuestions: number
+  mode: JourneyGameMode
+}) {
+  const { score, totalQuestions, mode } = input
+
+  if (totalQuestions <= 0) return 0
+
+  const accuracy = score / totalQuestions
+
+  let baseXp = 8
+
+  if (accuracy <= 0.3) {
+    baseXp = 8
+  } else if (accuracy <= 0.5) {
+    baseXp = 16
+  } else if (accuracy <= 0.7) {
+    baseXp = 28
+  } else if (accuracy <= 0.9) {
+    baseXp = 42
+  } else {
+    baseXp = 58
+  }
+
+  const modeMultiplier =
+    mode === "hard" ? 1.25 : mode === "similar" ? 1.15 : 1
+
+  if (accuracy <= 0.3) {
+    return baseXp
+  }
+
+  return Math.round(baseXp * modeMultiplier)
 }
 
 export async function ensureJourneyProgress(userId: string) {
@@ -248,20 +328,22 @@ export async function ensureJourneyProgress(userId: string) {
 export async function getMyJourney(userId: string) {
   const progress = await ensureJourneyProgress(userId)
 
-  const [{ data: badges, error: badgesError }, { data: events, error: eventsError }] =
-    await Promise.all([
-      supabase
-        .from("user_badges")
-        .select("*")
-        .eq("user_id", userId)
-        .order("unlocked_at", { ascending: false }),
-      supabase
-        .from("user_xp_events")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(30),
-    ])
+  const [
+    { data: badges, error: badgesError },
+    { data: events, error: eventsError },
+  ] = await Promise.all([
+    supabase
+      .from("user_badges")
+      .select("*")
+      .eq("user_id", userId)
+      .order("unlocked_at", { ascending: false }),
+    supabase
+      .from("user_xp_events")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(30),
+  ])
 
   if (badgesError) throw badgesError
   if (eventsError) throw eventsError
@@ -295,6 +377,10 @@ function getEligibleBadgeIds(input: {
     eligible.add("first_daily")
   }
 
+  if (events.some((event) => event.source === "game")) {
+    eligible.add("first_game")
+  }
+
   if (
     events.some(
       (event) =>
@@ -309,7 +395,19 @@ function getEligibleBadgeIds(input: {
   if (
     events.some(
       (event) =>
-        event.source === "daily" && getMetadataNumber(event.metadata, "streak") >= 3
+        event.source === "game" &&
+        event.metadata &&
+        event.metadata.perfect === true
+    )
+  ) {
+    eligible.add("perfect_game")
+  }
+
+  if (
+    events.some(
+      (event) =>
+        event.source === "daily" &&
+        getMetadataNumber(event.metadata, "streak") >= 3
     )
   ) {
     eligible.add("daily_streak_3")
@@ -318,7 +416,8 @@ function getEligibleBadgeIds(input: {
   if (
     events.some(
       (event) =>
-        event.source === "daily" && getMetadataNumber(event.metadata, "streak") >= 7
+        event.source === "daily" &&
+        getMetadataNumber(event.metadata, "streak") >= 7
     )
   ) {
     eligible.add("daily_streak_7")
@@ -332,22 +431,26 @@ function getEligibleBadgeIds(input: {
 }
 
 async function unlockEligibleBadges(userId: string, progress: JourneyProgress) {
-  const [{ data: events, error: eventsError }, { data: badges, error: badgesError }] =
-    await Promise.all([
-      supabase
-        .from("user_xp_events")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(200),
-      supabase.from("user_badges").select("*").eq("user_id", userId),
-    ])
+  const [
+    { data: events, error: eventsError },
+    { data: badges, error: badgesError },
+  ] = await Promise.all([
+    supabase
+      .from("user_xp_events")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase.from("user_badges").select("*").eq("user_id", userId),
+  ])
 
   if (eventsError) throw eventsError
   if (badgesError) throw badgesError
 
   const currentBadges = (badges ?? []) as UserBadge[]
-  const currentBadgeIds = new Set(currentBadges.map((badge) => badge.badge_id))
+  const currentBadgeIds = new Set(
+    currentBadges.map((badge) => badge.badge_id)
+  )
 
   const eligibleBadgeIds = getEligibleBadgeIds({
     progress,
@@ -369,7 +472,9 @@ async function unlockEligibleBadges(userId: string, progress: JourneyProgress) {
 
   if (error && error.code !== "23505") throw error
 
-  return BADGE_DEFINITIONS.filter((badge) => missingBadgeIds.includes(badge.id))
+  return BADGE_DEFINITIONS.filter((badge) =>
+    missingBadgeIds.includes(badge.id)
+  )
 }
 
 export async function grantJourneyXp(input: {
@@ -451,6 +556,41 @@ export async function grantDailyJourneyXp(input: {
       total_questions: input.totalQuestions,
       correct: input.score === input.totalQuestions,
       streak: input.streak,
+    },
+  })
+}
+
+export async function grantGameJourneyXp(input: {
+  userId: string
+  mode: JourneyGameMode
+  score: number
+  totalQuestions: number
+  bestStreak: number
+  questionIds: string[]
+}) {
+  const xp = getGameJourneyXp({
+    score: input.score,
+    totalQuestions: input.totalQuestions,
+    mode: input.mode,
+  })
+
+  const accuracy =
+    input.totalQuestions > 0
+      ? Math.round((input.score / input.totalQuestions) * 100)
+      : 0
+
+  return grantJourneyXp({
+    userId: input.userId,
+    eventKey: `game:${input.mode}:${input.questionIds.join("-")}:${input.score}:${input.totalQuestions}`,
+    source: "game",
+    xp,
+    metadata: {
+      mode: input.mode,
+      score: input.score,
+      total_questions: input.totalQuestions,
+      accuracy,
+      perfect: input.score === input.totalQuestions,
+      best_streak: input.bestStreak,
     },
   })
 }
