@@ -266,7 +266,6 @@ export function AppSidebar() {
           displayName={displayName}
           level={levelSnapshot.level}
           levelTitle={levelSnapshot.title}
-          xp={levelSnapshot.xp}
           xpIntoLevel={levelSnapshot.xpIntoLevel}
           nextLevelXp={levelSnapshot.nextLevelXp}
           xpToNextLevel={levelSnapshot.xpToNextLevel}
@@ -307,7 +306,6 @@ export function AppSidebar() {
               displayName={displayName}
               level={levelSnapshot.level}
               levelTitle={levelSnapshot.title}
-              xp={levelSnapshot.xp}
               xpIntoLevel={levelSnapshot.xpIntoLevel}
               nextLevelXp={levelSnapshot.nextLevelXp}
               xpToNextLevel={levelSnapshot.xpToNextLevel}
@@ -340,7 +338,6 @@ function SidebarContent({
   displayName,
   level,
   levelTitle,
-  xp,
   xpIntoLevel,
   nextLevelXp,
   xpToNextLevel,
@@ -365,7 +362,6 @@ function SidebarContent({
   displayName: string
   level: number
   levelTitle: string
-  xp: number
   xpIntoLevel: number
   nextLevelXp: number
   xpToNextLevel: number
@@ -463,7 +459,9 @@ function SidebarContent({
                 <div className="mt-3">
                   <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-500">
                     <span>
-                      {accountLoading ? "..." : `${xpIntoLevel}/${nextLevelXp} XP`}
+                      {accountLoading
+                        ? "..."
+                        : `${xpIntoLevel}/${nextLevelXp} XP`}
                     </span>
 
                     <span>
@@ -509,16 +507,6 @@ function SidebarContent({
                   >
                     Journey
                   </Link>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950/70 px-3 py-2">
-                  <span className="text-[11px] uppercase tracking-[0.14em] text-zinc-600">
-                    XP
-                  </span>
-
-                  <span className="text-xs font-semibold text-green-300">
-                    {accountLoading ? "..." : xp}
-                  </span>
                 </div>
               </div>
 

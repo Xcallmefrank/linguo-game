@@ -11,7 +11,7 @@ import { Button } from "@/components/button"
 import { AdSenseBanner } from "@/components/adsense-banner"
 import { useLocale } from "@/components/locale-provider"
 import { useAuth } from "@/components/auth-provider"
-import { signInWithGoogle, signOut } from "@/lib/auth"
+import { signInWithGoogle } from "@/lib/auth"
 import { getMyProfile } from "@/lib/profile"
 import { GameMode } from "@/lib/game-mode"
 import { trackEvent } from "@/lib/analytics"
@@ -105,7 +105,6 @@ export default function HomePage() {
   }, [user, authLoading])
 
   const isRegisteredUser = Boolean(user && profileNickname)
-  const identityLabel = profileNickname ?? user?.email ?? "Utente connesso"
 
   const journeySnapshot = useMemo(() => {
     return getLevelSnapshot(journeyProgress?.xp ?? 0, locale)
@@ -206,23 +205,6 @@ export default function HomePage() {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      trackEvent("auth_click", {
-        source: "home",
-        action: "logout",
-      })
-
-      await signOut()
-      setProfileNickname(null)
-      setJourneyProgress(null)
-      setJourneyBadges([])
-      router.push("/")
-    } catch (error) {
-      console.error("Errore logout:", error)
-    }
-  }
-
   return (
     <main className="min-h-screen">
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-5 px-5 py-8">
@@ -259,38 +241,7 @@ export default function HomePage() {
 
               <div className="mx-auto w-full max-w-md space-y-4">
                 <div className="space-y-3">
-                  {authLoading || profileLoading ? null : user ? (
-                    <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 backdrop-blur-xl">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 text-left">
-                          <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                            profilo
-                          </p>
-                          <p className="truncate text-base font-semibold text-white">
-                            {identityLabel}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => router.push("/profile")}
-                            className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition-colors hover:bg-zinc-900"
-                          >
-                            Profilo
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={handleLogout}
-                            className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition-colors hover:bg-zinc-900"
-                          >
-                            Logout
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
+                  {authLoading || profileLoading ? null : !user ? (
                     <button
                       type="button"
                       onClick={handleGoogleLogin}
@@ -354,10 +305,18 @@ export default function HomePage() {
                         </span>
                       </span>
                     </button>
-                  )}
+                  ) : null}
                 </div>
 
-                {!isRegisteredUser ? (
+                {authLoading || profileLoading ? (
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 px-4 py-4 text-center">
+                    <p className="text-sm text-zinc-500">
+                      {locale === "en"
+                        ? "Loading profile..."
+                        : "Caricamento profilo..."}
+                    </p>
+                  </div>
+                ) : !isRegisteredUser ? (
                   <>
                     <div className="space-y-2 text-center">
                       <label className="block text-sm text-zinc-300">
@@ -395,20 +354,14 @@ export default function HomePage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.18em] text-green-300">
-                                Journey
-                              </p>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.18em] text-green-300">
+                              Journey
+                            </p>
 
-                              <p className="mt-1 text-base font-semibold text-white">
-                                Lv. {journeySnapshot.level} ·{" "}
-                                {journeySnapshot.title}
-                              </p>
-                            </div>
-
-                            <p className="text-xs font-semibold text-green-300">
-                              {journeySnapshot.xp} XP
+                            <p className="mt-1 text-base font-semibold text-white">
+                              Lv. {journeySnapshot.level} ·{" "}
+                              {journeySnapshot.title}
                             </p>
                           </div>
 
@@ -507,15 +460,13 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <Button
-                    className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:scale-[1.01] hover:bg-green-400 disabled:bg-zinc-800 disabled:text-zinc-500"
-                    disabled={!isRegisteredUser && nickname.trim().length < 2}
-                    onClick={handleStart}
-                  >
-                    {t("home.start")}
-                  </Button>
-                </div>
+                <Button
+                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:scale-[1.01] hover:bg-green-400 disabled:bg-zinc-800 disabled:text-zinc-500"
+                  disabled={!isRegisteredUser && nickname.trim().length < 2}
+                  onClick={handleStart}
+                >
+                  {t("home.start")}
+                </Button>
 
                 <div className="pt-4">
                   <div className="mb-4 h-px w-full bg-gradient-to-r from-transparent via-white/12 to-transparent" />
