@@ -12,10 +12,13 @@ import { useToast } from "@/components/toast-provider"
 
 import { signInWithGoogle } from "@/lib/auth"
 import { getMyProfile } from "@/lib/profile"
-import { getDailyGame } from "@/lib/daily"
+import { getDailyGame, getLocalDateKey } from "@/lib/daily"
 import { trackEvent } from "@/lib/analytics"
+import { grantDailyJourneyXp } from "@/lib/journey"
 import {
+  calculateDailyStreak,
   getMyDailyAttempt,
+  getMyRecentDailyAttempts,
   saveDailyAttempt,
   type DailyAnswer,
   type DailyAttempt,
@@ -191,10 +194,53 @@ function DailyPlayContent() {
         correct: score === 1,
       })
 
-      showToast(
-        locale === "en" ? "Daily saved." : "Daily salvata.",
-        "success"
-      )
+      try {
+        const recentAttempts = await getMyRecentDailyAttempts(user.id)
+        const todayKey = getLocalDateKey()
+        const streak = calculateDailyStreak(recentAttempts, todayKey)
+
+        const journeyResult = await grantDailyJourneyXp({
+          userId: user.id,
+          dailyKey: daily.key,
+          score,
+          totalQuestions: 1,
+          streak,
+        })
+
+        if (journeyResult.awarded) {
+          const badgeText =
+            journeyResult.unlockedBadges.length > 0
+              ? locale === "en"
+                ? ` Badge unlocked: ${journeyResult.unlockedBadges
+                    .map((badge) => badge.title.en)
+                    .join(", ")}`
+                : ` Badge sbloccato: ${journeyResult.unlockedBadges
+                    .map((badge) => badge.title.it)
+                    .join(", ")}`
+              : ""
+
+          showToast(
+            locale === "en"
+              ? `Daily saved. +${journeyResult.xpAwarded} XP earned.${badgeText}`
+              : `Daily salvata. +${journeyResult.xpAwarded} XP guadagnati.${badgeText}`,
+            "success"
+          )
+        } else {
+          showToast(
+            locale === "en"
+              ? "Daily saved."
+              : "Daily salvata.",
+            "success"
+          )
+        }
+      } catch (journeyError) {
+        console.error("Errore aggiornamento Journey:", journeyError)
+
+        showToast(
+          locale === "en" ? "Daily saved." : "Daily salvata.",
+          "success"
+        )
+      }
     } catch (error) {
       console.error("Errore salvataggio daily:", error)
 

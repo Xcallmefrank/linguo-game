@@ -45,7 +45,7 @@ export function AppSidebar() {
 
       setConsentReady(
         typeof callbackQueue?.push === "function" &&
-          typeof showRevocationMessage === "function"
+        typeof showRevocationMessage === "function"
       )
     }
 
@@ -81,6 +81,11 @@ export function AppSidebar() {
   ]
 
   const directLinks: SidebarLink[] = [
+    {
+      href: "/journey",
+      label: "Journey",
+      icon: "🗺️",
+    },
     {
       href: "/daily",
       label: "Daily Hub",
@@ -317,11 +322,10 @@ function SidebarContent({
                     target: "/profile",
                   })
                 }
-                className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
-                  pathname === "/profile"
+                className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${pathname === "/profile"
                     ? "border-green-500/30 bg-green-500/10 text-green-300"
                     : "border-white/10 bg-black/30 text-zinc-300 hover:border-green-500/25 hover:text-green-300"
-                }`}
+                  }`}
               >
                 <span>👤</span>
                 <span className="min-w-0 truncate">
@@ -375,11 +379,10 @@ function SidebarContent({
             <button
               type="button"
               onClick={onConsentClick}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                consentReady
+              className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm transition ${consentReady
                   ? "border-white/10 bg-black/30 text-zinc-400 hover:border-green-500/25 hover:text-green-300"
                   : "border-white/5 bg-black/20 text-zinc-700"
-              }`}
+                }`}
             >
               <span>⚙️</span>
               <span>
@@ -450,11 +453,10 @@ function SidebarNavLink({
           target: link.href,
         })
       }
-      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
-        active
+      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition ${active
           ? "border-green-500/30 bg-green-500/10 text-green-300"
           : "border-white/10 bg-black/30 text-zinc-400 hover:border-green-500/25 hover:text-green-300"
-      }`}
+        }`}
     >
       <span>{link.icon}</span>
       <span className="truncate">{link.label}</span>
