@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useLocale } from "@/components/locale-provider"
 import { useToast } from "@/components/toast-provider"
+
 import { signInWithGoogle, signOut } from "@/lib/auth"
 import { trackEvent } from "@/lib/analytics"
 import { getMyProfile } from "@/lib/profile"
@@ -120,7 +121,7 @@ export function AppSidebar() {
     return () => {
       cancelled = true
     }
-  }, [loading, user])
+  }, [loading, user, pathname])
 
   const levelSnapshot = useMemo(() => {
     return getLevelSnapshot(progress?.xp ?? 0, locale)
@@ -135,7 +136,9 @@ export function AppSidebar() {
   }, [badges])
 
   const displayName =
-    profileNickname ?? user?.email?.split("@")[0] ?? (isEnglish ? "Player" : "Giocatore")
+    profileNickname ??
+    user?.email?.split("@")[0] ??
+    (isEnglish ? "Player" : "Giocatore")
 
   const playLinks: SidebarLink[] = [
     {
@@ -264,6 +267,10 @@ export function AppSidebar() {
           level={levelSnapshot.level}
           levelTitle={levelSnapshot.title}
           xp={levelSnapshot.xp}
+          xpIntoLevel={levelSnapshot.xpIntoLevel}
+          nextLevelXp={levelSnapshot.nextLevelXp}
+          xpToNextLevel={levelSnapshot.xpToNextLevel}
+          progressPercent={levelSnapshot.progressPercent}
           badgeIcon={latestBadge?.icon ?? null}
           badgeTitle={latestBadge?.title[locale] ?? null}
           playLinks={playLinks}
@@ -301,6 +308,10 @@ export function AppSidebar() {
               level={levelSnapshot.level}
               levelTitle={levelSnapshot.title}
               xp={levelSnapshot.xp}
+              xpIntoLevel={levelSnapshot.xpIntoLevel}
+              nextLevelXp={levelSnapshot.nextLevelXp}
+              xpToNextLevel={levelSnapshot.xpToNextLevel}
+              progressPercent={levelSnapshot.progressPercent}
               badgeIcon={latestBadge?.icon ?? null}
               badgeTitle={latestBadge?.title[locale] ?? null}
               playLinks={playLinks}
@@ -330,6 +341,10 @@ function SidebarContent({
   level,
   levelTitle,
   xp,
+  xpIntoLevel,
+  nextLevelXp,
+  xpToNextLevel,
+  progressPercent,
   badgeIcon,
   badgeTitle,
   playLinks,
@@ -351,6 +366,10 @@ function SidebarContent({
   level: number
   levelTitle: string
   xp: number
+  xpIntoLevel: number
+  nextLevelXp: number
+  xpToNextLevel: number
+  progressPercent: number
   badgeIcon: string | null
   badgeTitle: string | null
   playLinks: SidebarLink[]
@@ -416,21 +435,7 @@ function SidebarContent({
             </div>
           ) : userEmail ? (
             <div className="space-y-3">
-              <Link
-                href="/profile"
-                onClick={() =>
-                  trackEvent("nav_click", {
-                    source: "sidebar",
-                    label: isEnglish ? "Profile" : "Profilo",
-                    target: "/profile",
-                  })
-                }
-                className={`block rounded-3xl border p-3 transition ${
-                  pathname === "/profile"
-                    ? "border-green-500/30 bg-green-500/10"
-                    : "border-white/10 bg-black/30 hover:border-green-500/25"
-                }`}
-              >
+              <div className="rounded-3xl border border-green-500/20 bg-green-500/[0.08] p-3">
                 <div className="flex items-start gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-xl">
                     {badgeIcon ?? "👤"}
@@ -447,12 +452,63 @@ function SidebarContent({
 
                     <p className="mt-1 truncate text-[11px] text-zinc-500">
                       {badgeTitle
-                        ? `${isEnglish ? "Badge" : "Badge"}: ${badgeTitle}`
+                        ? `Badge: ${badgeTitle}`
                         : isEnglish
                           ? "No badge unlocked yet"
                           : "Nessun badge sbloccato"}
                     </p>
                   </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-500">
+                    <span>
+                      {accountLoading ? "..." : `${xpIntoLevel}/${nextLevelXp} XP`}
+                    </span>
+
+                    <span>
+                      {accountLoading ? "..." : `-${xpToNextLevel} XP`}
+                    </span>
+                  </div>
+
+                  <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-300 transition-all duration-500"
+                      style={{
+                        width: `${progressPercent}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <Link
+                    href="/profile"
+                    onClick={() =>
+                      trackEvent("nav_click", {
+                        source: "sidebar",
+                        label: isEnglish ? "Profile" : "Profilo",
+                        target: "/profile",
+                      })
+                    }
+                    className="flex h-9 flex-1 items-center justify-center rounded-2xl border border-white/10 bg-black/30 text-xs font-medium text-zinc-300 transition hover:border-green-500/25 hover:text-green-300"
+                  >
+                    {isEnglish ? "Profile" : "Profilo"}
+                  </Link>
+
+                  <Link
+                    href="/journey"
+                    onClick={() =>
+                      trackEvent("nav_click", {
+                        source: "sidebar",
+                        label: "Journey",
+                        target: "/journey",
+                      })
+                    }
+                    className="flex h-9 flex-1 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-xs font-medium text-green-300 transition hover:bg-green-500/15"
+                  >
+                    Journey
+                  </Link>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950/70 px-3 py-2">
@@ -464,7 +520,7 @@ function SidebarContent({
                     {accountLoading ? "..." : xp}
                   </span>
                 </div>
-              </Link>
+              </div>
 
               <button
                 type="button"
