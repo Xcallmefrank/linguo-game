@@ -12,19 +12,20 @@ import {
   YAxis,
 } from "recharts"
 
-import { Card } from "@/components/card"
 import { Button } from "@/components/button"
+import { Card } from "@/components/card"
 import { useAuth } from "@/components/auth-provider"
 import { useLocale } from "@/components/locale-provider"
 
 import { signInWithGoogle, signOut } from "@/lib/auth"
 import { getFlagFromCode } from "@/lib/countries"
-import { getLocalDateKey } from "@/lib/daily"
+import { getMyProfile, type Profile } from "@/lib/profile"
 import {
-  calculateDailyStreak,
-  getMyRecentDailyAttempts,
-  type DailyAttempt,
-} from "@/lib/daily-sessions"
+  getActiveRankedSeason,
+  getMyRankedStanding,
+  type RankedSeason,
+  type RankedStanding,
+} from "@/lib/ranked-v2"
 import {
   getMyGameModeStats,
   getMyGameOverviewStats,
@@ -33,13 +34,14 @@ import {
   type GameOverviewStats,
   type GameSession,
 } from "@/lib/game-sessions"
-import { getMyProfile, type Profile } from "@/lib/profile"
 import {
-  getActiveRankedSeason,
-  getMyRankedStanding,
-  type RankedSeason,
-  type RankedStanding,
-} from "@/lib/ranked-v2"
+  BADGE_DEFINITIONS,
+  getLevelSnapshot,
+  getMyJourney,
+  type JourneyProgress,
+  type JourneyXpEvent,
+  type UserBadge,
+} from "@/lib/journey"
 
 type GateState =
   | "checking-auth"
@@ -59,59 +61,18 @@ function formatTime(ms: number | null) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
-function parseDateKey(key: string) {
-  const [year, month, day] = key.split("-").map(Number)
-  return new Date(year, month - 1, day)
-}
-
-function toDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-
-  return `${year}-${month}-${day}`
-}
-
-function addDays(key: string, amount: number) {
-  const date = parseDateKey(key)
-  date.setDate(date.getDate() + amount)
-  return toDateKey(date)
-}
-
-function formatDate(value: string, locale: "it" | "en") {
-  return new Date(value).toLocaleDateString(locale === "en" ? "en-US" : "it-IT", {
+function formatDate(date: string, locale: "it" | "en") {
+  return new Date(date).toLocaleString(locale === "en" ? "en-US" : "it-IT", {
     day: "2-digit",
     month: "short",
-    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   })
-}
-
-function calculateBestDailyStreak(attempts: DailyAttempt[]) {
-  if (attempts.length === 0) return 0
-
-  const keys = Array.from(new Set(attempts.map((attempt) => attempt.daily_key)))
-    .sort((a, b) => a.localeCompare(b))
-
-  let best = 0
-  let current = 0
-  let previous: string | null = null
-
-  for (const key of keys) {
-    if (previous && key === addDays(previous, 1)) {
-      current += 1
-    } else {
-      current = 1
-    }
-
-    best = Math.max(best, current)
-    previous = key
-  }
-
-  return best
 }
 
 export default function ProfilePage() {
   const router = useRouter()
+
   const { user, loading: authLoading } = useAuth()
   const { t, locale } = useLocale()
 
@@ -122,7 +83,12 @@ export default function ProfilePage() {
   const [overview, setOverview] = useState<GameOverviewStats | null>(null)
   const [modeStats, setModeStats] = useState<GameModeStats[]>([])
   const [recentSessions, setRecentSessions] = useState<GameSession[]>([])
-  const [dailyAttempts, setDailyAttempts] = useState<DailyAttempt[]>([])
+  const [journeyProgress, setJourneyProgress] =
+    useState<JourneyProgress | null>(null)
+  const [journeyBadges, setJourneyBadges] = useState<UserBadge[]>([])
+  const [journeyEvents, setJourneyEvents] = useState<JourneyXpEvent[]>([])
+
+  const isEnglish = locale === "en"
 
   useEffect(() => {
     let cancelled = false
@@ -155,13 +121,13 @@ export default function ProfilePage() {
 
         const activeSeason = await getActiveRankedSeason()
 
-        const [myStanding, gameOverview, perMode, sessions, daily] =
+        const [myStanding, gameOverview, perMode, sessions, journey] =
           await Promise.all([
             getMyRankedStanding(activeSeason.id, user.id),
             getMyGameOverviewStats(user.id),
             getMyGameModeStats(user.id),
             getMyRecentGameSessions(user.id, 8),
-            getMyRecentDailyAttempts(user.id, 90),
+            getMyJourney(user.id),
           ])
 
         if (cancelled) return
@@ -172,10 +138,12 @@ export default function ProfilePage() {
         setOverview(gameOverview)
         setModeStats(perMode)
         setRecentSessions(sessions)
-        setDailyAttempts(daily)
+        setJourneyProgress(journey.progress)
+        setJourneyBadges(journey.badges)
+        setJourneyEvents(journey.events)
         setGateState("ready")
       } catch (error) {
-        console.error(error)
+        console.error("Errore caricamento profilo:", error)
 
         if (!cancelled) {
           setGateState("error")
@@ -215,15 +183,21 @@ export default function ProfilePage() {
     }))
   }, [modeStats])
 
-  const todayKey = getLocalDateKey()
-  const dailyStreak = calculateDailyStreak(dailyAttempts, todayKey)
-  const bestDailyStreak = calculateBestDailyStreak(dailyAttempts)
-  const todayDaily = dailyAttempts.find((attempt) => attempt.daily_key === todayKey)
-  const lastDaily = dailyAttempts[0] ?? null
-  const dailyCompleted = dailyAttempts.length
-  const perfectDailyCount = dailyAttempts.filter(
-    (attempt) => attempt.score === attempt.total_questions
-  ).length
+  const journeySnapshot = useMemo(() => {
+    return getLevelSnapshot(journeyProgress?.xp ?? 0, locale)
+  }, [journeyProgress?.xp, locale])
+
+  const unlockedBadgeIds = useMemo(() => {
+    return new Set(journeyBadges.map((badge) => badge.badge_id))
+  }, [journeyBadges])
+
+  const latestBadge = useMemo(() => {
+    const badgeId = journeyBadges[0]?.badge_id
+
+    if (!badgeId) return null
+
+    return BADGE_DEFINITIONS.find((badge) => badge.id === badgeId) ?? null
+  }, [journeyBadges])
 
   if (authLoading || gateState !== "ready") {
     return (
@@ -236,11 +210,21 @@ export default function ProfilePage() {
 
             <h1 className="mt-4 text-2xl font-semibold text-white">
               {authLoading && t("auth.checkingSession")}
-              {!authLoading && gateState === "checking-auth" && t("auth.checkingAccess")}
-              {!authLoading && gateState === "signing-in" && t("auth.goingToGoogle")}
-              {!authLoading && gateState === "checking-profile" && t("ranked.checkingProfile")}
-              {!authLoading && gateState === "loading-profile" && t("profile.loading")}
-              {!authLoading && gateState === "error" && t("ranked.problemLoading")}
+              {!authLoading &&
+                gateState === "checking-auth" &&
+                t("auth.checkingAccess")}
+              {!authLoading &&
+                gateState === "signing-in" &&
+                t("auth.goingToGoogle")}
+              {!authLoading &&
+                gateState === "checking-profile" &&
+                t("ranked.checkingProfile")}
+              {!authLoading &&
+                gateState === "loading-profile" &&
+                t("profile.loading")}
+              {!authLoading &&
+                gateState === "error" &&
+                t("ranked.problemLoading")}
             </h1>
 
             {gateState === "error" ? (
@@ -259,7 +243,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen px-5 py-10">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <button
             type="button"
@@ -274,531 +258,483 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.3fr]">
-          <div className="space-y-5">
-            <Card className="relative overflow-hidden rounded-[36px] border border-white/10 bg-black/40 p-7 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(34,197,94,0.14),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]" />
+        <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <Card className="relative overflow-hidden rounded-[40px] border border-white/10 bg-black/40 p-7 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl md:p-8">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,197,94,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]" />
 
-              <div className="relative">
-                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                  {t("profile.title")}
-                </p>
+            <div className="relative">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[28px] border border-green-500/20 bg-green-500/10 text-4xl shadow-[0_12px_35px_rgba(34,197,94,0.13)]">
+                    {latestBadge?.icon ?? "👤"}
+                  </div>
 
-                <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white">
-                  {profile?.nickname}
-                </h1>
-
-                <p className="mt-2 text-sm text-zinc-400">
-                  {getFlagFromCode(profile?.country_code ?? "")}{" "}
-                  {profile?.country_code}
-                </p>
-
-                <p className="mt-1 truncate text-sm text-zinc-500">
-                  {user?.email}
-                </p>
-
-                <div className="mt-7 grid grid-cols-2 gap-3">
-                  <StatCard
-                    label={t("profile.totalGames")}
-                    value={overview?.totalGames ?? 0}
-                  />
-
-                  <StatCard
-                    label={t("profile.averageAccuracy")}
-                    value={`${overview?.averageAccuracy ?? 0}%`}
-                  />
-
-                  <StatCard
-                    label={t("profile.bestScore")}
-                    value={overview?.bestScore ?? 0}
-                  />
-
-                  <StatCard
-                    label={t("profile.bestStreak")}
-                    value={overview?.bestStreak ?? 0}
-                  />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="relative overflow-hidden rounded-[36px] border border-green-500/15 bg-black/40 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,197,94,0.16),transparent_34%),radial-gradient(circle_at_90%_15%,rgba(250,204,21,0.08),transparent_30%)]" />
-
-              <div className="relative space-y-5">
-                <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-green-300">
-                      Daily Word
+                      {isEnglish ? "Player profile" : "Profilo giocatore"}
                     </p>
 
-                    <h2 className="mt-2 text-2xl font-semibold text-white">
-                      {locale === "en" ? "Your daily path" : "Il tuo percorso daily"}
-                    </h2>
+                    <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">
+                      {profile?.nickname}
+                    </h1>
 
-                    <p className="mt-2 text-sm leading-6 text-zinc-400">
-                      {locale === "en"
-                        ? "One word a day. Build your streak and track your progress over time."
-                        : "Una parola al giorno. Mantieni la serie e segui i tuoi progressi nel tempo."}
+                    <p className="mt-2 text-sm text-zinc-400">
+                      {getFlagFromCode(profile?.country_code ?? "")}{" "}
+                      {profile?.country_code} · {user?.email}
                     </p>
-                  </div>
 
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-3xl shadow-[0_0_28px_rgba(34,197,94,0.12)]">
-                    🧭
+                    <p className="mt-3 text-sm text-zinc-500">
+                      {latestBadge
+                        ? `${isEnglish ? "Latest badge" : "Ultimo badge"}: ${
+                            latestBadge.title[locale]
+                          }`
+                        : isEnglish
+                          ? "No badge unlocked yet."
+                          : "Nessun badge sbloccato."}
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <StatCard
-                    label={locale === "en" ? "Current streak" : "Serie attuale"}
-                    value={dailyStreak}
-                    highlight
-                  />
-
-                  <StatCard
-                    label={locale === "en" ? "Best streak" : "Miglior serie"}
-                    value={bestDailyStreak}
-                    highlight
-                  />
-
-                  <StatCard
-                    label={locale === "en" ? "Completed" : "Completate"}
-                    value={dailyCompleted}
-                  />
-
-                  <StatCard
-                    label={locale === "en" ? "Perfect" : "Perfette"}
-                    value={perfectDailyCount}
-                  />
-                </div>
-
-                <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    {locale === "en" ? "Today" : "Oggi"}
+                <div className="rounded-3xl border border-green-500/20 bg-green-500/[0.08] px-5 py-4 text-left sm:text-right">
+                  <p className="text-xs uppercase tracking-[0.18em] text-green-300">
+                    Journey
                   </p>
 
-                  <div className="mt-3 flex items-center justify-between gap-4">
-                    <div>
-                      <p
-                        className={`text-lg font-semibold ${todayDaily ? "text-green-400" : "text-amber-300"
-                          }`}
-                      >
-                        {todayDaily
-                          ? locale === "en"
-                            ? "Completed"
-                            : "Completata"
-                          : locale === "en"
-                            ? "Still available"
-                            : "Ancora disponibile"}
-                      </p>
+                  <p className="mt-2 text-3xl font-semibold text-white">
+                    Lv. {journeySnapshot.level}
+                  </p>
 
-                      <p className="mt-1 text-sm text-zinc-400">
-                        {todayDaily
-                          ? `${todayDaily.score}/${todayDaily.total_questions}`
-                          : locale === "en"
-                            ? "Complete today’s challenge to keep your streak active."
-                            : "Completa la sfida di oggi per mantenere attiva la tua serie."}
-                      </p>
-                    </div>
-
-                    <Button
-                      onClick={() => router.push("/daily")}
-                      className="h-10 rounded-full bg-green-500 px-4 text-sm font-semibold text-black transition-all duration-200 hover:bg-green-400"
-                    >
-                      {todayDaily
-                        ? locale === "en"
-                          ? "Open"
-                          : "Apri"
-                        : locale === "en"
-                          ? "Play"
-                          : "Gioca"}
-                    </Button>
-                  </div>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    {journeySnapshot.title}
+                  </p>
                 </div>
+              </div>
 
-                {lastDaily ? (
-                  <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-4">
+              <div className="mt-8 rounded-[30px] border border-white/10 bg-zinc-950/70 p-5">
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      {locale === "en" ? "Last daily" : "Ultima daily"}
+                      XP
                     </p>
 
-                    <div className="mt-3 flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-base font-semibold text-white">
-                          {formatDate(lastDaily.created_at, locale)}
-                        </p>
-
-                        <p className="mt-1 text-sm text-zinc-400">
-                          {lastDaily.daily_key}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-2 text-lg font-semibold text-green-300">
-                        {lastDaily.score}/{lastDaily.total_questions}
-                      </div>
-                    </div>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      {journeySnapshot.xpIntoLevel}/
+                      {journeySnapshot.nextLevelXp} XP
+                    </p>
                   </div>
-                ) : null}
-              </div>
-            </Card>
 
-            <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="space-y-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                    {t("ranked.title")}
-                  </p>
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      {isEnglish ? "Next level" : "Prossimo livello"}
+                    </p>
 
-                  <h2 className="mt-2 text-xl font-semibold text-white">
-                    {season?.display_name ?? "--"}
-                  </h2>
+                    <p className="mt-1 text-sm font-semibold text-green-300">
+                      -{journeySnapshot.xpToNextLevel} XP
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <StatCard
-                    label={t("profile.runsCompleted")}
-                    value={`${standing?.runs_completed ?? 0}/3`}
-                  />
-
-                  <StatCard
-                    label={t("profile.averageScore")}
-                    value={standing?.avg_score ?? "--"}
-                  />
-
-                  <StatCard
-                    label={t("profile.averageTime")}
-                    value={formatTime(standing?.avg_time_ms ?? null)}
-                  />
-
-                  <StatCard
-                    label={t("profile.rankedStatus")}
-                    value={
-                      standing?.is_official
-                        ? standing.position
-                          ? `#${standing.position}`
-                          : "OK"
-                        : "..."
-                    }
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
-                  <p className="text-sm text-zinc-400">
-                    {standing?.is_official
-                      ? standing.position
-                        ? `#${standing.position} / ${standing.total_ranked_users}`
-                        : t("profile.officialAvailable")
-                      : t("profile.completeThreeRuns")}
-                  </p>
-                </div>
-
-                <Button
-                  onClick={() => router.push("/ranked")}
-                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
-                >
-                  {t("profile.goRanked")}
-                </Button>
-              </div>
-            </Card>
-          </div>
-
-          <div className="space-y-5">
-            <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <h2 className="text-lg font-semibold text-white">
-                {t("profile.gamesByMode")}
-              </h2>
-
-              <div className="mt-4 h-64">
-                {gamesByModeChart.some((item) => item.value > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={gamesByModeChart}>
-                      <defs>
-                        <linearGradient
-                          id="gamesByModeGreen"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop offset="0%" stopColor="#86efac" stopOpacity={0.95} />
-                          <stop offset="45%" stopColor="#22c55e" stopOpacity={0.85} />
-                          <stop offset="100%" stopColor="#052e16" stopOpacity={0.75} />
-                        </linearGradient>
-                      </defs>
-
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="rgba(34,197,94,0.16)"
-                        vertical={false}
-                      />
-
-                      <XAxis
-                        dataKey="name"
-                        stroke="#a1a1aa"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
-                      />
-
-                      <YAxis
-                        stroke="#a1a1aa"
-                        fontSize={12}
-                        allowDecimals={false}
-                        tickLine={false}
-                        axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
-                      />
-
-                      <Tooltip
-                        cursor={{ fill: "rgba(34,197,94,0.06)" }}
-                        formatter={(value) => [
-                          `${value}`,
-                          locale === "en" ? "Games" : "Partite",
-                        ]}
-                        contentStyle={{
-                          background: "rgba(9, 9, 11, 0.92)",
-                          border: "1px solid rgba(34,197,94,0.22)",
-                          borderRadius: "14px",
-                          color: "#f4f4f5",
-                        }}
-                        labelStyle={{
-                          color: "#86efac",
-                        }}
-                      />
-
-                      <Bar
-                        dataKey="value"
-                        fill="url(#gamesByModeGreen)"
-                        stroke="#22c55e"
-                        strokeWidth={1}
-                        radius={[10, 10, 4, 4] as [
-                          number,
-                          number,
-                          number,
-                          number,
-                        ]}
-                        barSize={42}
-                        background={false}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/70 text-sm text-zinc-500">
-                    {t("profile.noChartData")}
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <h2 className="text-lg font-semibold text-white">
-                {t("profile.avgAccuracyByMode")}
-              </h2>
-
-              <div className="mt-4 h-64">
-                {accuracyByModeChart.some((item) => item.value > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={accuracyByModeChart}>
-                      <defs>
-                        <linearGradient
-                          id="accuracyByModeGreen"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop offset="0%" stopColor="#bbf7d0" stopOpacity={0.98} />
-                          <stop offset="45%" stopColor="#22c55e" stopOpacity={0.9} />
-                          <stop offset="100%" stopColor="#064e3b" stopOpacity={0.78} />
-                        </linearGradient>
-                      </defs>
-
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="rgba(34,197,94,0.16)"
-                        vertical={false}
-                      />
-
-                      <XAxis
-                        dataKey="name"
-                        stroke="#a1a1aa"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
-                      />
-
-                      <YAxis
-                        stroke="#a1a1aa"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={{ stroke: "rgba(255,255,255,0.18)" }}
-                      />
-
-                      <Tooltip
-                        cursor={{ fill: "rgba(34,197,94,0.06)" }}
-                        formatter={(value) => [
-                          `${value}%`,
-                          locale === "en" ? "Average accuracy" : "Accuracy media",
-                        ]}
-                        contentStyle={{
-                          background: "rgba(9, 9, 11, 0.92)",
-                          border: "1px solid rgba(34,197,94,0.22)",
-                          borderRadius: "14px",
-                          color: "#f4f4f5",
-                        }}
-                        labelStyle={{
-                          color: "#86efac",
-                        }}
-                      />
-
-                      <Bar
-                        dataKey="value"
-                        fill="url(#accuracyByModeGreen)"
-                        stroke="#4ade80"
-                        strokeWidth={1}
-                        radius={[10, 10, 4, 4] as [
-                          number,
-                          number,
-                          number,
-                          number,
-                        ]}
-                        barSize={42}
-                        background={false}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/70 text-sm text-zinc-500">
-                    {t("profile.noChartData")}
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <h2 className="text-lg font-semibold text-white">
-                {t("profile.modeStats")}
-              </h2>
-
-              <div className="mt-4 grid gap-3">
-                {modeStats.map((item) => (
+                <div className="h-3 overflow-hidden rounded-full bg-zinc-900">
                   <div
-                    key={item.mode}
-                    className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-medium text-white">
-                        {modeLabel(item.mode)}
-                      </p>
-
-                      <p className="text-sm text-green-400">
-                        {item.averageAccuracy}%
-                      </p>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-zinc-400">
-                      <p>
-                        {t("profile.totalGames")}:{" "}
-                        <span className="text-zinc-200">{item.gamesPlayed}</span>
-                      </p>
-
-                      <p>
-                        {t("profile.bestScore")}:{" "}
-                        <span className="text-zinc-200">{item.bestScore}</span>
-                      </p>
-
-                      <p className="col-span-2">
-                        {t("profile.averageTime")}:{" "}
-                        <span className="text-zinc-200">
-                          {formatTime(item.averageTimeMs)}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-300 transition-all duration-500"
+                    style={{
+                      width: `${journeySnapshot.progressPercent}%`,
+                    }}
+                  />
+                </div>
               </div>
-            </Card>
 
-            <Card className="rounded-[30px] border border-white/10 bg-black/40 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <h2 className="text-lg font-semibold text-white">
-                {t("profile.recentGames")}
-              </h2>
-
-              <div className="mt-4 space-y-3">
-                {recentSessions.length === 0 ? (
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm text-zinc-500">
-                    {t("profile.noGamesYet")}
-                  </div>
-                ) : (
-                  recentSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-white">
-                            {modeLabel(session.mode)}
-                          </p>
-
-                          <p className="mt-1 text-xs text-zinc-500">
-                            {new Date(session.created_at).toLocaleString()}
-                          </p>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="font-semibold text-green-400">
-                            {session.score}/{session.total_questions}
-                          </p>
-
-                          <p className="mt-1 text-xs text-zinc-500">
-                            {session.accuracy_percent}%
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+              <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <ProfileMetric
+                  label={t("profile.totalGames")}
+                  value={overview?.totalGames ?? 0}
+                />
+                <ProfileMetric
+                  label={t("profile.averageAccuracy")}
+                  value={`${overview?.averageAccuracy ?? 0}%`}
+                />
+                <ProfileMetric
+                  label={t("profile.bestScore")}
+                  value={overview?.bestScore ?? 0}
+                />
+                <ProfileMetric
+                  label={t("profile.bestStreak")}
+                  value={overview?.bestStreak ?? 0}
+                />
               </div>
-            </Card>
+            </div>
+          </Card>
+
+          <Card className="rounded-[40px] border border-white/10 bg-black/40 p-7 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl md:p-8">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              {t("ranked.title")}
+            </p>
+
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              {isEnglish ? "Current ranked status" : "Stato ranked attuale"}
+            </h2>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <ProfileMetric
+                label={t("profile.currentSeason")}
+                value={season?.display_name ?? "--"}
+              />
+              <ProfileMetric
+                label={t("profile.runsCompleted")}
+                value={`${standing?.runs_completed ?? 0}/3`}
+              />
+              <ProfileMetric
+                label={t("profile.averageScore")}
+                value={standing?.avg_score ?? "--"}
+              />
+              <ProfileMetric
+                label={t("profile.averageTime")}
+                value={formatTime(standing?.avg_time_ms ?? null)}
+              />
+            </div>
+
+            <div className="mt-5 rounded-[28px] border border-white/10 bg-zinc-950/70 p-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                {t("profile.rankedStatus")}
+              </p>
+
+              <p className="mt-3 text-lg font-semibold text-white">
+                {standing?.is_official
+                  ? standing.position
+                    ? `#${standing.position} / ${standing.total_ranked_users}`
+                    : t("profile.officialAvailable")
+                  : t("profile.completeThreeRuns")}
+              </p>
+            </div>
 
             <Button
-              onClick={handleLogout}
-              className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
+              onClick={() => router.push("/ranked")}
+              className="mt-6 h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
             >
-              {t("home.logout")}
+              {t("profile.goRanked")}
             </Button>
-          </div>
+          </Card>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <ChartCard
+            title={t("profile.gamesByMode")}
+            emptyText={t("profile.noChartData")}
+            data={gamesByModeChart}
+            valueSuffix=""
+            tooltipLabel={isEnglish ? "Games" : "Partite"}
+          />
+
+          <ChartCard
+            title={t("profile.avgAccuracyByMode")}
+            emptyText={t("profile.noChartData")}
+            data={accuracyByModeChart}
+            valueSuffix="%"
+            tooltipLabel={
+              isEnglish ? "Average accuracy" : "Accuracy media"
+            }
+          />
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <Card className="rounded-[34px] border border-white/10 bg-black/40 p-6 shadow-[0_14px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              Badge
+            </p>
+
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              {isEnglish ? "Rewards and milestones" : "Premi e traguardi"}
+            </h2>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {BADGE_DEFINITIONS.map((badge) => {
+                const unlocked = unlockedBadgeIds.has(badge.id)
+
+                return (
+                  <div
+                    key={badge.id}
+                    className={`rounded-3xl border p-4 transition ${
+                      unlocked
+                        ? "border-green-500/25 bg-green-500/10"
+                        : "border-white/10 bg-zinc-950/70 opacity-55"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 text-2xl">
+                        {badge.icon}
+                      </div>
+
+                      <div>
+                        <p
+                          className={`font-semibold ${
+                            unlocked ? "text-white" : "text-zinc-500"
+                          }`}
+                        >
+                          {badge.title[locale]}
+                        </p>
+
+                        <p className="mt-1 text-sm leading-6 text-zinc-400">
+                          {badge.description[locale]}
+                        </p>
+
+                        <p
+                          className={`mt-3 text-xs uppercase tracking-[0.16em] ${
+                            unlocked ? "text-green-300" : "text-zinc-600"
+                          }`}
+                        >
+                          {unlocked
+                            ? isEnglish
+                              ? "Unlocked"
+                              : "Sbloccato"
+                            : isEnglish
+                              ? "Locked"
+                              : "Bloccato"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] border border-white/10 bg-black/40 p-6 shadow-[0_14px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              XP
+            </p>
+
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              {isEnglish ? "Recent activity" : "Attività recente"}
+            </h2>
+
+            <div className="mt-6 space-y-3">
+              {journeyEvents.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm text-zinc-500">
+                  {isEnglish
+                    ? "No XP events yet. Complete a game to start your Journey."
+                    : "Nessun evento XP ancora. Completa una partita per iniziare il Journey."}
+                </div>
+              ) : (
+                journeyEvents.slice(0, 8).map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          {event.source === "daily"
+                            ? "Daily Word"
+                            : event.source === "game"
+                              ? isEnglish
+                                ? "Quick Play"
+                                : "Partita veloce"
+                              : event.source}
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {formatDate(event.created_at, locale)}
+                        </p>
+                      </div>
+
+                      <p className="text-lg font-semibold text-green-300">
+                        +{event.xp} XP
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+          <Card className="rounded-[34px] border border-white/10 bg-black/40 p-6 shadow-[0_14px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              {t("profile.modeStats")}
+            </p>
+
+            <div className="mt-6 space-y-3">
+              {modeStats.map((item) => (
+                <div
+                  key={item.mode}
+                  className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-white">
+                      {modeLabel(item.mode)}
+                    </p>
+
+                    <p className="text-sm font-medium text-green-300">
+                      {item.averageAccuracy}%
+                    </p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-zinc-400">
+                    <p>
+                      {t("profile.totalGames")}:{" "}
+                      <span className="text-white">{item.gamesPlayed}</span>
+                    </p>
+
+                    <p>
+                      {t("profile.bestScore")}:{" "}
+                      <span className="text-white">{item.bestScore}</span>
+                    </p>
+
+                    <p>
+                      {t("profile.averageTime")}:{" "}
+                      <span className="text-white">
+                        {formatTime(item.averageTimeMs)}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="rounded-[34px] border border-white/10 bg-black/40 p-6 shadow-[0_14px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+              {t("profile.recentGames")}
+            </p>
+
+            <div className="mt-6 space-y-3">
+              {recentSessions.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-sm text-zinc-500">
+                  {t("profile.noGamesYet")}
+                </div>
+              ) : (
+                recentSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-white">
+                          {modeLabel(session.mode)}
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {new Date(session.created_at).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="font-semibold text-green-300">
+                          {session.score}/{session.total_questions}
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {session.accuracy_percent}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </section>
+
+        <div className="mt-6 flex justify-center">
+          <Button
+            onClick={handleLogout}
+            className="h-12 rounded-2xl border border-red-500/20 bg-red-500/10 px-8 text-base font-medium text-red-300 transition-all duration-200 hover:bg-red-500/15"
+          >
+            {t("home.logout")}
+          </Button>
         </div>
       </div>
     </main>
   )
 }
 
-function StatCard({
+function ProfileMetric({
   label,
   value,
-  highlight = false,
 }: {
   label: string
   value: string | number
-  highlight?: boolean
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-4 ${highlight
-        ? "border-green-500/20 bg-green-500/10"
-        : "border-white/10 bg-zinc-950/70"
-        }`}
-    >
+    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
       <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
         {label}
       </p>
 
-      <p
-        className={`mt-2 text-2xl font-semibold ${highlight ? "text-green-400" : "text-white"
-          }`}
-      >
+      <p className="mt-2 truncate text-2xl font-semibold text-green-300">
         {value}
       </p>
     </div>
+  )
+}
+
+function ChartCard({
+  title,
+  emptyText,
+  data,
+  valueSuffix,
+  tooltipLabel,
+}: {
+  title: string
+  emptyText: string
+  data: {
+    name: string
+    value: number
+  }[]
+  valueSuffix: string
+  tooltipLabel: string
+}) {
+  const hasData = data.some((item) => item.value > 0)
+
+  return (
+    <Card className="rounded-[34px] border border-white/10 bg-black/40 p-6 shadow-[0_14px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+      <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+        {title}
+      </p>
+
+      <div className="mt-5 h-[260px]">
+        {hasData ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data}>
+              <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="name"
+                tick={{ fill: "#a1a1aa", fontSize: 12 }}
+                axisLine={{ stroke: "#3f3f46" }}
+                tickLine={{ stroke: "#3f3f46" }}
+              />
+              <YAxis
+                tick={{ fill: "#a1a1aa", fontSize: 12 }}
+                axisLine={{ stroke: "#3f3f46" }}
+                tickLine={{ stroke: "#3f3f46" }}
+              />
+              <Tooltip
+                formatter={(value) => [
+                  `${value}${valueSuffix}`,
+                  tooltipLabel,
+                ]}
+                contentStyle={{
+                  backgroundColor: "#09090b",
+                  border: "1px solid #27272a",
+                  borderRadius: "16px",
+                  color: "#fff",
+                }}
+              />
+              <Bar
+                dataKey="value"
+                fill="#22c55e"
+                radius={[10, 10, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/70 text-sm text-zinc-500">
+            {emptyText}
+          </div>
+        )}
+      </div>
+    </Card>
   )
 }
