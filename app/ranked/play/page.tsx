@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { motion, AnimatePresence } from "motion/react"
+import { motion } from "motion/react"
+
 import { Card } from "@/components/card"
 import { Button } from "@/components/button"
 import { Progress } from "@/components/progress"
@@ -10,21 +11,23 @@ import { AdSenseBanner } from "@/components/adsense-banner"
 import { useLocale } from "@/components/locale-provider"
 import { useToast } from "@/components/toast-provider"
 import { useAuth } from "@/components/auth-provider"
+
 import { signInWithGoogle } from "@/lib/auth"
 import { getMyProfile } from "@/lib/profile"
-import { questions, Question } from "@/lib/questions"
+import { questions, type Question } from "@/lib/questions"
 import { getLanguageLabel } from "@/lib/language-labels"
 import { getSmartOptions } from "@/lib/quiz-options"
 import { getFlagFromCode } from "@/lib/countries"
 import { trackEvent } from "@/lib/analytics"
+import { grantRankedJourneyXp, type BadgeDefinition } from "@/lib/journey"
 import {
   getActiveRankedSeason,
   getMyRankedStanding,
   getNextRunNumber,
   getQuestionsForRun,
   submitRankedRun,
-  RankedSeason,
-  RankedStanding,
+  type RankedSeason,
+  type RankedStanding,
 } from "@/lib/ranked-v2"
 
 type RankedAnswer = {
@@ -44,11 +47,18 @@ type GateState =
   | "ready"
   | "error"
 
+type JourneyAwardState = {
+  xpAwarded: number
+  unlockedBadges: BadgeDefinition[]
+} | null
+
 function formatTime(ms: number | null) {
   if (ms === null) return "--"
+
   const totalSeconds = Math.floor(ms / 1000)
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
+
   return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
@@ -78,6 +88,7 @@ function getRankedRunMessage(
 
 export default function RankedPlayPage() {
   const router = useRouter()
+
   const { locale, t } = useLocale()
   const { showToast } = useToast()
   const { user, loading: authLoading } = useAuth()
@@ -88,7 +99,6 @@ export default function RankedPlayPage() {
   const [profileNickname, setProfileNickname] = useState<string | null>(null)
   const [countryCode, setCountryCode] = useState("IT")
   const [currentRunNumber, setCurrentRunNumber] = useState<number | null>(null)
-
   const [submitting, setSubmitting] = useState(false)
   const [finished, setFinished] = useState(false)
 
@@ -99,10 +109,10 @@ export default function RankedPlayPage() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [timeLeft, setTimeLeft] = useState(10)
   const [totalTimeMs, setTotalTimeMs] = useState(0)
-
   const [standing, setStanding] = useState<RankedStanding | null>(null)
+  const [journeyAward, setJourneyAward] = useState<JourneyAwardState>(null)
 
-  const questionStartRef = useRef<number>(Date.now())
+  const questionStartRef = useRef(Date.now())
   const timerLockedRef = useRef(false)
 
   useEffect(() => {
@@ -122,6 +132,7 @@ export default function RankedPlayPage() {
         }
 
         setGateState("checking-profile")
+
         const profile = await getMyProfile(user.id)
 
         if (cancelled) return
@@ -133,7 +144,6 @@ export default function RankedPlayPage() {
 
         setProfileNickname(profile.nickname)
         setCountryCode(profile.country_code)
-
         setGateState("loading-season")
 
         const currentSeason = await getActiveRankedSeason()
@@ -148,13 +158,14 @@ export default function RankedPlayPage() {
               : "Hai già completato tutte e 3 le run di questa season.",
             "error"
           )
+
           router.replace("/ranked")
           return
         }
 
         const runQuestionIds = getQuestionsForRun(currentSeason, nextRun)
         const orderedQuestions = runQuestionIds
-          .map((id) => questions.find((q) => q.id === id))
+          .map((id) => questions.find((question) => question.id === id))
           .filter(Boolean) as Question[]
 
         if (orderedQuestions.length !== 10) {
@@ -164,20 +175,21 @@ export default function RankedPlayPage() {
         setSeason(currentSeason)
         setCurrentRunNumber(nextRun)
         setRankedQuestions(orderedQuestions)
-
         questionStartRef.current = Date.now()
         setTimeLeft(10)
         setGateState("ready")
       } catch (error) {
         console.error(error)
+
         if (!cancelled) {
           setGateState("error")
+
           showToast(
             error instanceof Error
               ? error.message
               : locale === "en"
-              ? "I couldn't load the ranked run."
-              : "Non sono riuscito a caricare la run ranked.",
+                ? "I couldn't load the ranked run."
+                : "Non sono riuscito a caricare la run ranked.",
             "error"
           )
         }
@@ -197,35 +209,9 @@ export default function RankedPlayPage() {
 
   const options = useMemo(() => {
     if (!currentQuestion) return []
+
     return getSmartOptions(currentQuestion.correct, currentQuestion.id, "hard")
   }, [currentQuestion])
-
-  useEffect(() => {
-    if (gateState !== "ready" || finished || showFeedback || !currentQuestion) return
-
-    timerLockedRef.current = false
-    setTimeLeft(10)
-    questionStartRef.current = Date.now()
-
-    const interval = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          window.clearInterval(interval)
-
-          if (!timerLockedRef.current) {
-            timerLockedRef.current = true
-            void handleAnswer(null, true)
-          }
-
-          return 0
-        }
-
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => window.clearInterval(interval)
-  }, [gateState, finished, showFeedback, currentQuestion])
 
   const handleAnswer = async (option: string | null, timedOut = false) => {
     if (!currentQuestion || showFeedback) return
@@ -267,7 +253,7 @@ export default function RankedPlayPage() {
         try {
           setSubmitting(true)
 
-          await submitRankedRun({
+          const submitResult = await submitRankedRun({
             seasonId: season.id,
             userId: user.id,
             score: nextScore,
@@ -277,6 +263,7 @@ export default function RankedPlayPage() {
           })
 
           const updatedStanding = await getMyRankedStanding(season.id, user.id)
+
           setStanding(updatedStanding)
           setFinished(true)
 
@@ -288,16 +275,58 @@ export default function RankedPlayPage() {
             total_time_ms: nextTotalTime,
             locale,
           })
+
+          try {
+            const journeyResult = await grantRankedJourneyXp({
+              userId: user.id,
+              seasonId: season.id,
+              runNumber: submitResult.runNumber,
+              score: nextScore,
+              totalQuestions: rankedQuestions.length,
+              totalTimeMs: nextTotalTime,
+              runsCompleted: submitResult.runsCompleted,
+              position: updatedStanding.position,
+            })
+
+            if (journeyResult.awarded) {
+              setJourneyAward({
+                xpAwarded: journeyResult.xpAwarded,
+                unlockedBadges: journeyResult.unlockedBadges,
+              })
+
+              const badgeText =
+                journeyResult.unlockedBadges.length > 0
+                  ? locale === "en"
+                    ? ` Badge unlocked: ${journeyResult.unlockedBadges
+                        .map((badge) => badge.title.en)
+                        .join(", ")}`
+                    : ` Badge sbloccato: ${journeyResult.unlockedBadges
+                        .map((badge) => badge.title.it)
+                        .join(", ")}`
+                  : ""
+
+              showToast(
+                locale === "en"
+                  ? `+${journeyResult.xpAwarded} XP earned.${badgeText}`
+                  : `+${journeyResult.xpAwarded} XP guadagnati.${badgeText}`,
+                "success"
+              )
+            }
+          } catch (journeyError) {
+            console.error("Errore aggiornamento Journey ranked:", journeyError)
+          }
         } catch (error) {
           console.error(error)
+
           showToast(
             error instanceof Error
               ? error.message
               : locale === "en"
-              ? "I couldn't submit your ranked run."
-              : "Non sono riuscito a inviare la tua run ranked.",
+                ? "I couldn't submit your ranked run."
+                : "Non sono riuscito a inviare la tua run ranked.",
             "error"
           )
+
           router.replace("/ranked")
         } finally {
           setSubmitting(false)
@@ -312,33 +341,73 @@ export default function RankedPlayPage() {
     }, 650)
   }
 
+  useEffect(() => {
+    if (gateState !== "ready" || finished || showFeedback || !currentQuestion) {
+      return
+    }
+
+    timerLockedRef.current = false
+    setTimeLeft(10)
+    questionStartRef.current = Date.now()
+
+    const interval = window.setInterval(() => {
+      setTimeLeft((previousValue) => {
+        if (previousValue <= 1) {
+          window.clearInterval(interval)
+
+          if (!timerLockedRef.current) {
+            timerLockedRef.current = true
+            void handleAnswer(null, true)
+          }
+
+          return 0
+        }
+
+        return previousValue - 1
+      })
+    }, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [gateState, finished, showFeedback, currentQuestion])
+
   if (authLoading || gateState !== "ready") {
     return (
-      <main className="min-h-screen">
-        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
-          <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <div className="space-y-3">
-              <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                ranked
-              </p>
-              <p className="text-base text-zinc-300">
-                {authLoading && "Controllo sessione..."}
-                {!authLoading && gateState === "checking-auth" && "Controllo accesso..."}
-                {!authLoading && gateState === "signing-in" && "Ti porto al login Google..."}
-                {!authLoading && gateState === "checking-profile" && "Controllo profilo..."}
-                {!authLoading && gateState === "loading-season" && "Preparo la run..."}
-                {!authLoading && gateState === "error" && "C'è stato un problema nel caricamento."}
-              </p>
+      <main className="min-h-screen px-5 py-10">
+        <div className="mx-auto flex min-h-[80vh] max-w-md items-center justify-center">
+          <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+            <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+              ranked
+            </p>
 
-              {gateState === "error" ? (
-                <Button
-                  onClick={() => router.push("/ranked")}
-                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
-                >
-                  Torna alla ranked
-                </Button>
-              ) : null}
-            </div>
+            <h1 className="mt-4 text-2xl font-semibold text-white">
+              {authLoading && "Controllo sessione..."}
+              {!authLoading &&
+                gateState === "checking-auth" &&
+                "Controllo accesso..."}
+              {!authLoading &&
+                gateState === "signing-in" &&
+                "Ti porto al login Google..."}
+              {!authLoading &&
+                gateState === "checking-profile" &&
+                "Controllo profilo..."}
+              {!authLoading &&
+                gateState === "loading-season" &&
+                "Preparo la run..."}
+              {!authLoading &&
+                gateState === "error" &&
+                "C'è stato un problema nel caricamento."}
+            </h1>
+
+            {gateState === "error" ? (
+              <Button
+                onClick={() => router.push("/ranked")}
+                className="mt-6 h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+              >
+                Torna alla ranked
+              </Button>
+            ) : null}
           </Card>
         </div>
       </main>
@@ -347,22 +416,21 @@ export default function RankedPlayPage() {
 
   if (!currentQuestion && !finished) {
     return (
-      <main className="min-h-screen">
-        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
-          <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <div className="space-y-4">
-              <p className="text-zinc-300">
-                {locale === "en"
-                  ? "No ranked questions available."
-                  : "Nessuna domanda ranked disponibile."}
-              </p>
-              <Button
-                onClick={() => router.push("/ranked")}
-                className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
-              >
-                Torna alla ranked
-              </Button>
-            </div>
+      <main className="min-h-screen px-5 py-10">
+        <div className="mx-auto flex min-h-[80vh] max-w-md items-center justify-center">
+          <Card className="w-full rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+            <h1 className="text-2xl font-semibold text-white">
+              {locale === "en"
+                ? "No ranked questions available."
+                : "Nessuna domanda ranked disponibile."}
+            </h1>
+
+            <Button
+              onClick={() => router.push("/ranked")}
+              className="mt-6 h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+            >
+              Torna alla ranked
+            </Button>
           </Card>
         </div>
       </main>
@@ -374,114 +442,135 @@ export default function RankedPlayPage() {
     const accuracy = ((score / rankedQuestions.length) * 100).toFixed(2)
 
     return (
-      <main className="min-h-screen">
-        <div className="mx-auto max-w-md px-5 py-8">
+      <main className="min-h-screen px-5 py-10">
+        <div className="mx-auto max-w-2xl">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="space-y-5"
+            transition={{ duration: 0.35 }}
           >
             <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                    ranked
-                  </p>
-                  <h1 className="text-3xl font-semibold tracking-tight text-white">
-                    {profileNickname}
-                  </h1>
-                  <p className="text-sm text-green-400">
-                    {getFlagFromCode(countryCode)} Run {currentRunNumber}/3 · {score}/{rankedQuestions.length}
-                  </p>
-                  <p className="text-zinc-400">{message}</p>
-                </div>
+              <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                ranked
+              </p>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Accuracy run
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold text-green-400">
-                      {accuracy}
-                    </p>
-                  </div>
+              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white">
+                {profileNickname}
+              </h1>
 
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Tempo run
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold text-green-400">
-                      {formatTime(totalTimeMs)}
-                    </p>
-                  </div>
-                </div>
+              <p className="mt-3 text-sm text-zinc-400">
+                {getFlagFromCode(countryCode)} Run {currentRunNumber}/3 ·{" "}
+                {score}/{rankedQuestions.length}
+              </p>
 
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Stato season
+              <p className="mx-auto mt-5 max-w-md text-sm leading-6 text-zinc-400">
+                {message}
+              </p>
+
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <RankedResultStat label="Accuracy run" value={`${accuracy}%`} />
+                <RankedResultStat label="Tempo run" value={formatTime(totalTimeMs)} />
+              </div>
+
+              {journeyAward ? (
+                <div className="mt-5 rounded-[28px] border border-green-500/20 bg-green-500/10 p-5 text-left">
+                  <p className="text-xs uppercase tracking-[0.18em] text-green-300">
+                    Journey
                   </p>
 
-                  <div className="mt-3 space-y-2 text-sm text-zinc-300">
-                    <p>
-                      Run completate:{" "}
-                      <span className="font-semibold text-white">
-                        {standing?.runs_completed ?? 0}/3
-                      </span>
-                    </p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    +{journeyAward.xpAwarded} XP
+                  </p>
 
-                    <p>
-                      Media score:{" "}
-                      <span className="font-semibold text-white">
-                        {standing?.avg_score ?? "--"}
-                      </span>
-                    </p>
+                  <p className="mt-2 text-sm text-zinc-300">
+                    {locale === "en"
+                      ? "Ranked progress updated."
+                      : "Progressione ranked aggiornata."}
+                  </p>
 
-                    <p>
-                      Tempo medio:{" "}
-                      <span className="font-semibold text-white">
-                        {formatTime(standing?.avg_time_ms ?? null)}
-                      </span>
-                    </p>
+                  {journeyAward.unlockedBadges.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {journeyAward.unlockedBadges.map((badge) => (
+                        <div
+                          key={badge.id}
+                          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 px-3 py-3"
+                        >
+                          <span className="text-xl">{badge.icon}</span>
+                          <span className="text-sm font-medium text-white">
+                            {locale === "en" ? badge.title.en : badge.title.it}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
-                    {standing?.is_official ? (
-                      <p>
-                        Posizione ufficiale:{" "}
-                        <span className="font-semibold text-green-400">
-                          {standing.position
-                            ? `#${standing.position} / ${standing.total_ranked_users}`
-                            : "Non disponibile"}
-                        </span>
-                      </p>
-                    ) : (
-                      <p className="text-zinc-400">
-                        Completa tutte e 3 le run per entrare nella classifica ufficiale.
-                      </p>
-                    )}
-                  </div>
+              <div className="mt-7 rounded-[28px] border border-white/10 bg-zinc-950/70 p-5 text-left">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Stato season
+                </p>
+
+                <div className="mt-4 space-y-2 text-sm text-zinc-300">
+                  <p>
+                    Run completate:{" "}
+                    <span className="font-semibold text-white">
+                      {standing?.runs_completed ?? 0}/3
+                    </span>
+                  </p>
+
+                  <p>
+                    Media score:{" "}
+                    <span className="font-semibold text-white">
+                      {standing?.avg_score ?? "--"}
+                    </span>
+                  </p>
+
+                  <p>
+                    Tempo medio:{" "}
+                    <span className="font-semibold text-white">
+                      {formatTime(standing?.avg_time_ms ?? null)}
+                    </span>
+                  </p>
                 </div>
 
-                <div className="space-y-3">
-                  <Button
-                    onClick={() => router.push("/ranked")}
-                    disabled={submitting}
-                    className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
-                  >
-                    Torna alla ranked
-                  </Button>
+                {standing?.is_official ? (
+                  <p className="mt-4 text-sm font-semibold text-green-300">
+                    Posizione ufficiale:{" "}
+                    {standing.position
+                      ? `#${standing.position} / ${standing.total_ranked_users}`
+                      : "Non disponibile"}
+                  </p>
+                ) : (
+                  <p className="mt-4 text-sm text-zinc-500">
+                    Completa tutte e 3 le run per entrare nella classifica
+                    ufficiale.
+                  </p>
+                )}
+              </div>
 
-                  <Button
-                    onClick={() => router.push("/")}
-                    className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
-                  >
-                    {t("common.backHome")}
-                  </Button>
-                </div>
+              <div className="mt-7 space-y-3">
+                <Button
+                  onClick={() => router.push("/ranked")}
+                  disabled={submitting}
+                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+                >
+                  Torna alla ranked
+                </Button>
+
+                <Button
+                  onClick={() => router.push("/")}
+                  className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900"
+                >
+                  {t("common.backHome")}
+                </Button>
               </div>
             </Card>
-
-            <AdSenseBanner slot="3530845225" className="min-h-24" />
           </motion.div>
+
+          <div className="mt-6">
+            <AdSenseBanner slot="5675946231" className="min-h-24" />
+          </div>
         </div>
       </main>
     )
@@ -490,126 +579,104 @@ export default function RankedPlayPage() {
   const progressValue = ((currentIndex + 1) / rankedQuestions.length) * 100
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-5 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full"
-        >
-          <Card className="rounded-[36px] border border-white/10 bg-black/40 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm text-zinc-400">
-                  <span>
-                    {getFlagFromCode(countryCode)} {profileNickname}
-                  </span>
-                  <span>Run {currentRunNumber}/3</span>
-                </div>
+    <main className="min-h-screen px-5 py-10">
+      <div className="mx-auto max-w-2xl">
+        <Card className="rounded-[36px] border border-white/10 bg-black/40 p-7 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                {getFlagFromCode(countryCode)} {profileNickname}
+              </p>
 
-                <div className="flex items-center justify-between text-sm text-zinc-500">
-                  <span>
-                    {currentIndex + 1}/{rankedQuestions.length}
-                  </span>
-                  <span>
-                    {t("quiz.score")}: {score}
-                  </span>
-                </div>
-
-                <Progress value={progressValue} className="h-2 rounded-full" />
-
-                <div className="rounded-2xl border border-white/10 bg-zinc-950/70 px-4 py-3 text-center">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Timer
-                  </p>
-                  <p
-                    className={`mt-1 text-2xl font-semibold ${
-                      timeLeft <= 3 ? "text-red-400" : "text-green-400"
-                    }`}
-                  >
-                    {timeLeft}s
-                  </p>
-                </div>
-              </div>
-
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentQuestion!.id}
-                  initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, y: -14, filter: "blur(6px)" }}
-                  transition={{ duration: 0.28 }}
-                  className="space-y-5"
-                >
-                  <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-5 shadow-inner">
-                    <p className="text-xl font-medium leading-8 text-white">
-                      {currentQuestion!.text}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3">
-                    {options.map((option) => {
-                      const isCorrect = option === currentQuestion!.correct
-                      const isSelected = option === selectedAnswer
-                      const isWrongSelected = showFeedback && isSelected && !isCorrect
-                      const isCorrectShown = showFeedback && isCorrect
-
-                      let buttonStyle =
-                        "min-h-14 w-full justify-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-4 py-4 text-left text-base leading-6 text-white transition-all duration-200"
-
-                      if (isCorrectShown) {
-                        buttonStyle += " border-green-500 bg-green-500 text-black"
-                      } else if (isWrongSelected) {
-                        buttonStyle += " border-red-500 bg-red-500 text-white"
-                      } else {
-                        buttonStyle += " hover:border-zinc-600 hover:bg-zinc-900"
-                      }
-
-                      return (
-                        <motion.div
-                          key={option}
-                          whileTap={!showFeedback ? { scale: 0.985 } : undefined}
-                          animate={
-                            isWrongSelected
-                              ? { x: [0, -6, 6, -4, 4, 0] }
-                              : isCorrectShown
-                              ? {
-                                  scale: [1, 1.025, 1],
-                                  boxShadow: [
-                                    "0 0 0 rgba(34,197,94,0)",
-                                    "0 0 18px rgba(34,197,94,0.28)",
-                                    "0 0 0 rgba(34,197,94,0)",
-                                  ],
-                                }
-                              : {
-                                  x: 0,
-                                  scale: 1,
-                                  boxShadow: "0 0 0 rgba(0,0,0,0)",
-                                }
-                          }
-                          transition={{
-                            duration: isWrongSelected ? 0.35 : 0.4,
-                          }}
-                          className="w-full rounded-2xl"
-                        >
-                          <Button
-                            className={`${buttonStyle} w-full`}
-                            onClick={() => void handleAnswer(option, false)}
-                            disabled={showFeedback || submitting}
-                          >
-                            {getLanguageLabel(option, locale)}
-                          </Button>
-                        </motion.div>
-                      )
-                    })}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-zinc-500">
+                Run {currentRunNumber}/3
+              </p>
             </div>
-          </Card>
-        </motion.div>
+
+            <div className="rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-sm font-semibold text-green-300">
+              {currentIndex + 1}/{rankedQuestions.length}
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <Progress value={progressValue} />
+          </div>
+
+          <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-950/70 px-4 py-3">
+            <p className="text-sm text-zinc-400">
+              {t("quiz.score")}:{" "}
+              <span className="font-semibold text-white">{score}</span>
+            </p>
+
+            <p className="text-sm text-zinc-400">
+              Timer:{" "}
+              <span className="font-semibold text-green-300">{timeLeft}s</span>
+            </p>
+          </div>
+
+          <motion.div
+            key={currentQuestion!.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="mt-7"
+          >
+            <h1 className="text-3xl font-semibold leading-tight text-white">
+              {currentQuestion!.text}
+            </h1>
+
+            <div className="mt-7 grid gap-3">
+              {options.map((option) => {
+                const isCorrect = option === currentQuestion!.correct
+                const isSelected = option === selectedAnswer
+                const isWrongSelected = showFeedback && isSelected && !isCorrect
+                const isCorrectShown = showFeedback && isCorrect
+
+                let buttonStyle =
+                  "min-h-14 w-full justify-start rounded-2xl border border-zinc-800 bg-zinc-950/80 px-4 py-4 text-left text-base leading-6 text-white transition-all duration-200"
+
+                if (isCorrectShown) {
+                  buttonStyle += " border-green-500 bg-green-500 text-black"
+                } else if (isWrongSelected) {
+                  buttonStyle += " border-red-500 bg-red-500 text-white"
+                } else {
+                  buttonStyle += " hover:border-zinc-600 hover:bg-zinc-900"
+                }
+
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => void handleAnswer(option, false)}
+                    disabled={showFeedback || submitting}
+                    className={buttonStyle}
+                  >
+                    {getLanguageLabel(option, locale)}
+                  </button>
+                )
+              })}
+            </div>
+          </motion.div>
+        </Card>
       </div>
     </main>
+  )
+}
+
+function RankedResultStat({
+  label,
+  value,
+}: {
+  label: string
+  value: string | number
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+        {label}
+      </p>
+
+      <p className="mt-2 text-2xl font-semibold text-green-300">{value}</p>
+    </div>
   )
 }

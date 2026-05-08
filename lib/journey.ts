@@ -105,6 +105,54 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     },
   },
   {
+    id: "first_ranked_run",
+    icon: "🏁",
+    title: {
+      it: "Prima Ranked",
+      en: "First Ranked",
+    },
+    description: {
+      it: "Hai completato la tua prima run ranked.",
+      en: "You completed your first ranked run.",
+    },
+  },
+  {
+    id: "perfect_ranked_run",
+    icon: "👑",
+    title: {
+      it: "Ranked perfetta",
+      en: "Perfect Ranked",
+    },
+    description: {
+      it: "Hai completato una run ranked senza errori.",
+      en: "You completed a ranked run without mistakes.",
+    },
+  },
+  {
+    id: "ranked_official",
+    icon: "📊",
+    title: {
+      it: "Classificato",
+      en: "Ranked Official",
+    },
+    description: {
+      it: "Hai completato tutte e 3 le run ranked di una season.",
+      en: "You completed all 3 ranked runs in a season.",
+    },
+  },
+  {
+    id: "ranked_top_25",
+    icon: "🏆",
+    title: {
+      it: "Top 25",
+      en: "Top 25",
+    },
+    description: {
+      it: "Sei entrato nella Top 25 ranked.",
+      en: "You entered the ranked Top 25.",
+    },
+  },
+  {
     id: "daily_streak_3",
     icon: "🔥",
     title: {
@@ -290,6 +338,24 @@ export function getGameJourneyXp(input: {
   return Math.round(baseXp * modeMultiplier)
 }
 
+export function getRankedJourneyXp(input: {
+  score: number
+  totalQuestions: number
+}) {
+  const { score, totalQuestions } = input
+
+  if (totalQuestions <= 0) return 0
+
+  const accuracy = score / totalQuestions
+
+  if (accuracy <= 0.3) return 10
+  if (accuracy <= 0.5) return 22
+  if (accuracy <= 0.7) return 38
+  if (accuracy <= 0.9) return 55
+
+  return 75
+}
+
 export async function ensureJourneyProgress(userId: string) {
   const { data: existing, error: existingError } = await supabase
     .from("user_progress")
@@ -381,6 +447,10 @@ function getEligibleBadgeIds(input: {
     eligible.add("first_game")
   }
 
+  if (events.some((event) => event.source === "ranked")) {
+    eligible.add("first_ranked_run")
+  }
+
   if (
     events.some(
       (event) =>
@@ -406,6 +476,17 @@ function getEligibleBadgeIds(input: {
   if (
     events.some(
       (event) =>
+        event.source === "ranked" &&
+        event.metadata &&
+        event.metadata.perfect === true
+    )
+  ) {
+    eligible.add("perfect_ranked_run")
+  }
+
+  if (
+    events.some(
+      (event) =>
         event.source === "daily" &&
         getMetadataNumber(event.metadata, "streak") >= 3
     )
@@ -421,6 +502,27 @@ function getEligibleBadgeIds(input: {
     )
   ) {
     eligible.add("daily_streak_7")
+  }
+
+  if (
+    events.some(
+      (event) =>
+        event.source === "ranked" &&
+        getMetadataNumber(event.metadata, "runs_completed") >= 3
+    )
+  ) {
+    eligible.add("ranked_official")
+  }
+
+  if (
+    events.some(
+      (event) =>
+        event.source === "ranked" &&
+        getMetadataNumber(event.metadata, "position") > 0 &&
+        getMetadataNumber(event.metadata, "position") <= 25
+    )
+  ) {
+    eligible.add("ranked_top_25")
   }
 
   if (progress.level >= 5) eligible.add("level_5")
@@ -591,6 +693,45 @@ export async function grantGameJourneyXp(input: {
       accuracy,
       perfect: input.score === input.totalQuestions,
       best_streak: input.bestStreak,
+    },
+  })
+}
+
+export async function grantRankedJourneyXp(input: {
+  userId: string
+  seasonId: string
+  runNumber: number
+  score: number
+  totalQuestions: number
+  totalTimeMs: number
+  runsCompleted: number
+  position: number | null
+}) {
+  const xp = getRankedJourneyXp({
+    score: input.score,
+    totalQuestions: input.totalQuestions,
+  })
+
+  const accuracy =
+    input.totalQuestions > 0
+      ? Math.round((input.score / input.totalQuestions) * 100)
+      : 0
+
+  return grantJourneyXp({
+    userId: input.userId,
+    eventKey: `ranked:${input.seasonId}:${input.runNumber}`,
+    source: "ranked",
+    xp,
+    metadata: {
+      season_id: input.seasonId,
+      run_number: input.runNumber,
+      score: input.score,
+      total_questions: input.totalQuestions,
+      total_time_ms: input.totalTimeMs,
+      accuracy,
+      perfect: input.score === input.totalQuestions,
+      runs_completed: input.runsCompleted,
+      position: input.position,
     },
   })
 }
