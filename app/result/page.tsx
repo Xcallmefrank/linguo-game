@@ -19,7 +19,22 @@ import { type GameMode, getResultMessage } from "@/lib/game-mode"
 import { getFamilyLabel, getRunStats } from "@/lib/run-stats"
 import { trackEvent } from "@/lib/analytics"
 import { saveGameSession } from "@/lib/game-sessions"
-import { grantGameJourneyXp } from "@/lib/journey"
+import {
+  getLevelSnapshot,
+  grantGameJourneyXp,
+  type BadgeDefinition,
+} from "@/lib/journey"
+
+type JourneyReward = {
+  xpAwarded: number
+  level: number
+  title: string
+  xpIntoLevel: number
+  nextLevelXp: number
+  xpToNextLevel: number
+  progressPercent: number
+  unlockedBadges: BadgeDefinition[]
+}
 
 export default function ResultPage() {
   const router = useRouter()
@@ -43,6 +58,7 @@ export default function ResultPage() {
   const [downloadingCard, setDownloadingCard] = useState(false)
   const [sessionSaved, setSessionSaved] = useState(false)
   const [journeyAwarded, setJourneyAwarded] = useState(false)
+  const [journeyReward, setJourneyReward] = useState<JourneyReward | null>(null)
 
   useEffect(() => {
     const savedName = localStorage.getItem("linguo_nickname")
@@ -128,6 +144,19 @@ export default function ResultPage() {
           setJourneyAwarded(true)
 
           if (journeyResult.awarded) {
+            const snapshot = getLevelSnapshot(journeyResult.progress.xp, locale)
+
+            setJourneyReward({
+              xpAwarded: journeyResult.xpAwarded,
+              level: snapshot.level,
+              title: snapshot.title,
+              xpIntoLevel: snapshot.xpIntoLevel,
+              nextLevelXp: snapshot.nextLevelXp,
+              xpToNextLevel: snapshot.xpToNextLevel,
+              progressPercent: snapshot.progressPercent,
+              unlockedBadges: journeyResult.unlockedBadges,
+            })
+
             const badgeText =
               journeyResult.unlockedBadges.length > 0
                 ? locale === "en"
@@ -175,6 +204,32 @@ export default function ResultPage() {
 
   const handleGoHome = () => {
     router.push("/")
+  }
+
+  const handleOpenDaily = () => {
+    trackEvent("cta_click", {
+      source: "result",
+      label: "daily_word",
+      target: "/daily",
+      authenticated: Boolean(user),
+    })
+
+    localStorage.setItem("linguo_after_login", "/daily")
+    localStorage.setItem("linguo_after_profile", "/daily")
+    router.push("/daily")
+  }
+
+  const handleOpenJourney = () => {
+    trackEvent("cta_click", {
+      source: "result",
+      label: "journey",
+      target: "/journey",
+      authenticated: Boolean(user),
+    })
+
+    localStorage.setItem("linguo_after_login", "/journey")
+    localStorage.setItem("linguo_after_profile", "/journey")
+    router.push("/journey")
   }
 
   const handleOpenChallengeStatus = () => {
@@ -368,63 +423,131 @@ export default function ResultPage() {
                 />
               </div>
 
-              <div className="mt-7 space-y-3">
-                {[
-                  {
-                    key: "download",
-                    label: downloadingCard
-                      ? t("common.prepareCard")
-                      : t("common.downloadCard"),
-                    onClick: handleDownloadCard,
-                    disabled: downloadingCard,
-                    className:
-                      "h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60",
-                  },
-                  {
-                    key: "replay",
-                    label: t("common.playAgain"),
-                    onClick: handleReplay,
-                    disabled: false,
-                    className:
-                      "h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400",
-                  },
-                  {
-                    key: "share",
-                    label: creatingChallenge
-                      ? t("common.createChallenge")
-                      : t("common.shareChallenge"),
-                    onClick: handleShare,
-                    disabled: creatingChallenge,
-                    className:
-                      "h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60",
-                  },
-                  {
-                    key: "status",
-                    label: t("common.challengeStatus"),
-                    onClick: handleOpenChallengeStatus,
-                    disabled: !existingChallengeCode,
-                    className:
-                      "h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-40",
-                  },
-                  {
-                    key: "home",
-                    label: t("common.backHome"),
-                    onClick: handleGoHome,
-                    disabled: false,
-                    className:
-                      "h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900",
-                  },
-                ].map((item) => (
-                  <Button
-                    key={item.key}
-                    onClick={item.onClick}
-                    disabled={item.disabled}
-                    className={item.className}
-                  >
-                    {item.label}
-                  </Button>
-                ))}
+              {journeyReward ? (
+                <div className="mt-7 rounded-[30px] border border-green-500/20 bg-green-500/[0.08] p-5 text-left">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-green-300">
+                        Journey reward
+                      </p>
+
+                      <p className="mt-2 text-3xl font-semibold text-white">
+                        +{journeyReward.xpAwarded} XP
+                      </p>
+
+                      <p className="mt-1 text-sm text-zinc-400">
+                        Lv. {journeyReward.level} · {journeyReward.title}
+                      </p>
+                    </div>
+
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10 text-2xl">
+                      🗺️
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-500">
+                      <span>
+                        {journeyReward.xpIntoLevel}/{journeyReward.nextLevelXp} XP
+                      </span>
+
+                      <span>-{journeyReward.xpToNextLevel} XP</span>
+                    </div>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-zinc-900">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-300 transition-all duration-500"
+                        style={{
+                          width: `${journeyReward.progressPercent}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {journeyReward.unlockedBadges.length > 0 ? (
+                    <div className="mt-5 space-y-2">
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        {locale === "en" ? "Unlocked badge" : "Badge sbloccato"}
+                      </p>
+
+                      {journeyReward.unlockedBadges.map((badge) => (
+                        <div
+                          key={badge.id}
+                          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 px-3 py-3"
+                        >
+                          <span className="text-xl">{badge.icon}</span>
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              {badge.title[locale]}
+                            </p>
+                            <p className="text-xs text-zinc-500">
+                              {badge.description[locale]}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                <Button
+                  onClick={handleReplay}
+                  className="h-12 w-full rounded-2xl bg-green-500 text-base font-medium text-black transition-all duration-200 hover:bg-green-400"
+                >
+                  {t("common.playAgain")}
+                </Button>
+
+                <Button
+                  onClick={handleOpenDaily}
+                  className="h-12 w-full rounded-2xl border border-green-500/30 bg-green-500/10 text-base font-medium text-green-300 transition-all duration-200 hover:bg-green-500/15"
+                >
+                  Daily Word
+                </Button>
+
+                <Button
+                  onClick={handleShare}
+                  disabled={creatingChallenge}
+                  className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  {creatingChallenge
+                    ? t("common.createChallenge")
+                    : t("common.shareChallenge")}
+                </Button>
+
+                <Button
+                  onClick={handleOpenJourney}
+                  className="h-12 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-medium text-white transition-all duration-200 hover:bg-zinc-800"
+                >
+                  Journey
+                </Button>
+
+                <Button
+                  onClick={handleDownloadCard}
+                  disabled={downloadingCard}
+                  className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900 disabled:opacity-60"
+                >
+                  {downloadingCard
+                    ? t("common.prepareCard")
+                    : t("common.downloadCard")}
+                </Button>
+
+                <Button
+                  onClick={handleOpenChallengeStatus}
+                  disabled={!existingChallengeCode}
+                  className="h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-300 transition-all duration-200 hover:bg-zinc-900 disabled:opacity-40"
+                >
+                  {t("common.challengeStatus")}
+                </Button>
               </div>
+
+              <Button
+                onClick={handleGoHome}
+                className="mt-3 h-12 w-full rounded-2xl border border-zinc-800 bg-transparent text-base font-medium text-zinc-400 transition-all duration-200 hover:bg-zinc-900"
+              >
+                {t("common.backHome")}
+              </Button>
 
               {challengeLink ? (
                 <div className="mt-5 rounded-2xl border border-white/10 bg-zinc-950/70 p-4 text-left">
