@@ -21,8 +21,6 @@ const inter = Inter({
   variable: "--font-inter",
 })
 
-const adsEnabled = process.env.NEXT_PUBLIC_ENABLE_ADS === "true"
-
 const rawAdsenseClient =
   process.env.NEXT_PUBLIC_ADSENSE_CLIENT ?? "ca-pub-9077490381225909"
 
@@ -60,14 +58,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} bg-[#020403] text-white antialiased`}
       >
-        {adsEnabled ? (
-          <Script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        ) : null}
+        <Script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
 
         <ToastProvider>
           <AuthProvider>
